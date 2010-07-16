@@ -179,13 +179,17 @@ sub get_mime_type {
 # set of builtin templates needed by Dancer when rendering HTML pages
 sub templates {
     my $charset = setting('charset') || 'UTF-8';
+    my $request = Dancer::SharedData->request();
+    my $base = "";
+    $base = $request->base() if defined($request);
+
     {   default =>
           '<!DOCTYPE html>
 <html lang="en-US">
 <head>
 <title><% title %></title>
-<link rel="stylesheet" href="/css/<% style %>.css" />
-<meta charset='.$charset.'" />
+<link rel="stylesheet" href="'.$base.'/css/<% style %>.css" />
+<meta http-equiv="Content-Type" content="text/html; charset='.$charset.'" />
 </head>
 <body>
 <h1><% title %></h1>
