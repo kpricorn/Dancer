@@ -14,11 +14,19 @@ use Encode;
 
 # This is where we choose which application handler to return
 sub get_handler {
-    my $app_handler = setting('apphandler') || $ENV{PLACK_ENV} || 'Standalone';
-    my $handler = 'Dancer::Handler::' . $app_handler;
+    my $handler;
 
+    if ($ENV{'PLACK_ENV'}) {
+        $handler = 'Dancer::Handler::PSGI'; 
+        setting('apphandler'  => 'PSGI');
+        setting('environment' => $ENV{'PLACK_ENV'});
+    }
+ 
+    my $app_handler = setting('apphandler') || 'Standalone';
+    $handler = 'Dancer::Handler::' . $app_handler;
+   
     if (Dancer::ModuleLoader->load($handler)) {
-        Dancer::Logger->core('loading ' . $app_handler . ' handler');
+        Dancer::Logger::core('loading ' . $app_handler . ' handler');
         return $handler->new;
     }
     else {
@@ -30,12 +38,13 @@ sub get_handler {
 # handle an incoming request, process it and return a response
 sub handle_request {
     my ($self, $request) = @_;
-    Dancer::SharedData->reset_timer;
-
     my $ip_addr = $request->remote_address || '-';
-    Dancer::Logger->core(
+
+    Dancer::SharedData->reset_timer;
+    Dancer::Logger::core(
         "request: ".$request->method." ".
-        $request->path . " from $ip_addr");
+        $request->path . " from $ip_addr"
+    );
 
     # deserialize the request body if possible
     $request = Dancer::Serializer->process_request($request) if setting('serializer');

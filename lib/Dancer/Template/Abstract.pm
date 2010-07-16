@@ -13,16 +13,7 @@ sub render($$$) { die "render not implemented" }
 sub view {
     my ($self, $view) = @_;
     $view .= ".tt" if $view !~ /\.tt$/;
-    $view = path(Dancer::Config::setting('views'), $view);
-
-    if (!-r $view) {
-        my $error = Dancer::Error->new(
-            code    => 404,
-            message => "Page not found",
-        );
-        return Dancer::Response::set($error->render);
-    }
-    $view;
+    return path(Dancer::Config::setting('views'), $view);
 }
 
 sub layout {
@@ -61,6 +52,14 @@ The template engine can overload this method if some initialization stuff has to
 be done before the template engine is used.
 
 The base class provides a plain init() method that only returns true.
+
+=item B<view($view)>
+
+The default behavior of this method is to return the path of the given view.
+
+=item B<layout($layout, $tokens, $content)>
+
+The default behavior of this method is to merge a content with a layout.
 
 =item B<render($self, $template, $tokens)>
 
