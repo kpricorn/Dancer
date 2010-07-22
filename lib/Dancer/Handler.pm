@@ -103,7 +103,7 @@ sub render_response {
         $content = [ $content ];
     }
 
-    Dancer::Logger->core("response: ".$response->{status});
+    Dancer::Logger::core("response: ".$response->{status});
     Dancer::SharedData->reset_all();
     return [$response->{status}, $response->{headers}, $content];
 }
