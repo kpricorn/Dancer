@@ -39,8 +39,8 @@ sub dance {
             Dancer::ModuleLoader->load('Plack::Builder');
 
         my $builder = Plack::Builder->new();
-        for my $m (keys %$middlewares) {
-            $builder->add_middleware($m, @{$middlewares->{$m}});
+        for my $m (@$middlewares) {
+            $builder->add_middleware($m->[0], %{$m->[1]});
         }
         $app = $builder->to_app($app);
     }
