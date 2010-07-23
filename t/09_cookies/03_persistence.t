@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More;
+use Test::More import => ['!pass'];
 
 BEGIN {
     use Dancer::ModuleLoader;
@@ -11,7 +11,7 @@ BEGIN {
         unless Dancer::ModuleLoader->load('Test::TCP');
 };
 
-use Dancer::Config 'setting';
+use Dancer;
 
 use File::Spec;
 use File::Temp 'tempdir';
@@ -37,6 +37,8 @@ Test::TCP::test_tcp(
             like $res->content, qr/'name' => '$client'/, 
             "cookie looks good for client $client"; 
         }
+
+        File::Temp::cleanup();
     },
     server => sub {
         my $port = shift;

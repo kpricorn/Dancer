@@ -1,6 +1,5 @@
 use Test::More tests => 15, import => ['!pass'];
 
-use Dancer::Config 'setting';
 use Dancer ':syntax';
 
 use File::Temp qw/tempdir/;
@@ -52,3 +51,4 @@ ok(warning($message), 'warning message is logged');
 ok(error($message), 'error message is logged');
 
 unlink $logfile;
+File::Temp::cleanup();

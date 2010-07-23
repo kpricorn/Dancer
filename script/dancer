@@ -7,6 +7,8 @@ use File::Basename 'basename', 'dirname';
 use File::Spec::Functions;
 use Getopt::Long;
 use Dancer::Renderer;
+use IO::Socket::INET;
+use IO::Select;
 use constant FILE => 1;
 
 # options
@@ -32,10 +34,6 @@ usage() if not defined $name;
 usage() unless -d $path && -w $path;
 
 validate_app_name($name);
-if ($name =~ /[^\w]/) {
-    warn "Error: Invalid application name.\n";
-    exit;
-}
 
 my $DO_OVERWRITE_ALL = 0;
 my $DANCER_APP_DIR   = get_application_path($path, $name);
@@ -43,6 +41,10 @@ my $DANCER_SCRIPT    = get_script_path($name);
 my ($LIB_FILE, $LIB_PATH) = get_lib_path($name);
 my $AUTO_RELOAD = eval "require Module::Refresh" ? 1 : 0;
 
+require Dancer;
+my $DANCER_VERSION   = $Dancer::VERSION;
+
+version_check();
 safe_mkdir($DANCER_APP_DIR);
 create_node( app_tree($name), $DANCER_APP_DIR );
 
@@ -100,6 +102,8 @@ sub create_node($;$) {
     my ($node, $root) = @_;
     $root ||= '.';
 
+    my $templates = templates($name);
+
     while ( my ($path, $content) = each %$node ) {
         $path = catfile($root, $path);
 
@@ -114,7 +118,7 @@ sub create_node($;$) {
             my $file = basename($path);
             my $dir  = dirname($path);
             my $ex = ($file =~ s/^\+//); # look for '+' flag (executable)
-            my $template = templates($name)->{$file};
+            my $template = $templates->{$file};
 
             $path = catfile($dir, $file); # rebuild the path without the '+' flag
             write_file($path, $template, {appdir => File::Spec->rel2abs($DANCER_APP_DIR)});
@@ -126,9 +130,7 @@ sub create_node($;$) {
 sub app_tree($) {
     my ($appname) = @_;
 
-
     return {
-        "app.psgi"           => FILE,
         "+$DANCER_SCRIPT.pl" => FILE,
         "Makefile.PL"        => FILE,
         lib                  => {
@@ -179,8 +181,7 @@ sub write_file {
     my ($path, $template, $vars) = @_;
     die "no template found for $path" unless defined $template;
 
-    require Dancer;
-    $vars->{dancer_version} = $Dancer::VERSION;
+    $vars->{dancer_version} = $DANCER_VERSION;
 
     # if file already exists, ask for confirmation
     if (-f $path && (not $DO_OVERWRITE_ALL)) {
@@ -244,31 +245,12 @@ WriteMakefile(
     clean               => { FILES => '$appname-*' },
 );
 ",
-
-'app.psgi'  =>
-
-"# PSGI application bootstraper for Dancer
-use Dancer;
-use lib('lib');
-load_app '$appname';
-
-use Dancer::Config 'setting';
-setting apphandler  => 'PSGI';
-Dancer::Config->load;
-
-my \$handler = sub {
-    my \$env = shift;
-    my \$request = Dancer::Request->new(\$env);
-    Dancer->dance(\$request);
-};
-",
 'index.tt'  => '<h2>It Works!</h2>
 
 <p>
 I\'m in <code>[%appdir%]/views/index.tt</code>
 </p>
 ',
-
 'main.tt'   =>
     Dancer::Renderer->html_page($appname, '<% content %>'),
 
@@ -334,7 +316,7 @@ h1 {
     color: #a5ec02;
 }
 
-#footer {
+footer {
     border-top: 1px solid #aba29c;
     margin-top: 2em;
     padding-top: 1em;
@@ -368,7 +350,7 @@ pre {
     padding-left: 1em;
 }
 
-#footer {
+footer {
     font-size: 10px;
 }
 
@@ -483,6 +465,73 @@ response_content_like [GET => '/'], qr/It Works.*I'm in.*index.tt/s,
 ",
 
     };
+}
+
+# LWP, File::Fetch and other high level interfaces are not avaiable to us in perl 5.8.5.
+
+sub send_http_request {
+    my $url = shift;
+    my ($host, $path);
+
+    if ($url =~ /https?:\/\/([^\/]+)(.*)/) {
+        ($host, $path) = ($1, $2);
+    }
+    else {
+        die "unknown url: $url";
+    }
+
+    my $timeout = 2;
+    my $latest_version;
+
+    my $sock = IO::Socket::INET->new(PeerAddr => $host, PeerPort => 'http(80)', Proto => 'tcp');
+    my $req = "GET $path HTTP/1.0\x0d\x0aHost: $host\x0d\x0a\x0d\x0a";
+
+    $sock->send( $req );
+    my $select = IO::Select->new( $sock );
+
+    my $resp;
+    while ( $select->can_read( $timeout ) ) {
+        $resp = '';
+        my $ret = $sock->sysread( $resp, 4096, length($resp) );
+        $select->remove( $sock );
+    }
+    my @headers = split /\n/, $resp;
+    my $status_line = shift @headers;
+
+    # redirection handling
+    if ($status_line =~ /HTTP\/.*30[12]/) {
+        for my $header (@headers) {
+            if ($header =~ /Location: (\S+).*$/) {
+                my $path = $1;
+                if ($path =~ /^http:/) {
+                    return send_http_request($path);
+                }
+                else {
+                    return send_http_request("http://${host}${path}");
+                }
+            }
+            last if not $header;
+        }
+    }
+    return $resp;
+}
+
+sub version_check {
+    my $latest_version = 0;
+    require Dancer;
+
+    my $resp = send_http_request('http://search.cpan.org/dist/Dancer/CHANGES');
+    if ($resp && $resp =~ m/Dancer (\d\.\d+)/) {
+        $latest_version = $1;
+    }
+
+    if ($latest_version > $DANCER_VERSION) {
+        print qq|
+The latest Dancer release is $latest_version, you are currently using $DANCER_VERSION.
+Please check http://search.cpan.org/dist/Dancer/ for updates.
+
+|;
+    }
 }
 
 =pod

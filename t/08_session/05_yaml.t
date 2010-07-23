@@ -5,7 +5,6 @@ use warnings;
 use Dancer ':syntax';
 use Dancer::ModuleLoader;
 use Dancer::Logger;
-use Dancer::Config 'setting';
 
 use t::lib::TestUtils;
 use t::lib::EasyMocker;
@@ -20,7 +19,7 @@ BEGIN {
 }
 
 
-my $dir = tempdir(CLEAN_UP => 1);
+my $dir = tempdir(CLEANUP => 1);
 set appdir => $dir;
 Dancer::Logger->init('File');
 
@@ -62,3 +61,5 @@ is_deeply $s, $session, "session is changed on flush";
 $s->destroy;
 $session = Dancer::Session::YAML->retrieve($session->id);
 is $session, undef, 'destroy removes the session';
+
+File::Temp::cleanup();
