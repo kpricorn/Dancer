@@ -199,7 +199,6 @@ sub import {
 # Start/Run the application with the chosen apphandler
 sub start {
     my ($class, $request) = @_;
-    Dancer::Config->load;
 
     # Backward compatibility for app.psgi that has sub { Dancer->dance($req) }
     if ($request) {
