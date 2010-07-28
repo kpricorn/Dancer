@@ -1,3 +1,14 @@
+Dancer
+
+    [LoonyPandora]
+    * fix issues GH #84 #86 and #87 (failing tests on < 5.10 due to regex with named captures)
+
+    [franck cuny]
+    * update cookbook
+
+    [François Charlier]
+    * fix for GH#76 and GH#88
+
 Dancer 1.1806_01
 
     [ sebastian de castelberg ]
