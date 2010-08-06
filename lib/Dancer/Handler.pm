@@ -55,19 +55,8 @@ sub handle_request {
     # read cookies from client
     Dancer::Cookies->init;
 
-    # TODO : move that elsewhere
-    if (setting('auto_reload')) {
-        if (Dancer::ModuleLoader->load('Module::Refresh')) {
-            my $orig_reg = Dancer::Route->registry;
-            Dancer::Route->purge_all;
-            Module::Refresh->refresh;
-            my $new_reg = Dancer::Route->registry;
-            Dancer::Route->merge_registry($orig_reg, $new_reg);
-        }
-        else {
-            warn "Module::Refresh is not installed, " .
-                "install this module or unset 'auto_reload' in your config file";
-        }
+    if (Dancer::Config::setting('auto_reload')) {
+        Dancer::App->reload_apps;
     }
 
     my $response;

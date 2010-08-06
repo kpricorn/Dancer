@@ -6,6 +6,7 @@ use warnings;
 use Test::More import => ['!pass'];
 
 use Dancer ':syntax';
+use Dancer::App;
 use Dancer::Request;
 use Dancer::SharedData;
 use Dancer::Renderer;
@@ -19,8 +20,10 @@ use vars '@EXPORT';
 
     response_exists
     response_doesnt_exist
+
     response_status_is
     response_status_isnt
+    
     response_content_is
     response_content_isnt
     response_content_is_deeply
@@ -28,10 +31,19 @@ use vars '@EXPORT';
     response_content_unlike
 
     response_is_file
+
+    response_headers_are_deeply
 );
 
 sub import {
     my ($class, %options) = @_;
+
+    # mimic PSGI env
+    $ENV{SERVERNAME} = 'localhost';
+    $ENV{HTTP_HOST} = 'localhost';
+    $ENV{SERVER_PORT} = 80;
+    $ENV{'psgi.url_scheme'} = 'http';
+
     my ($package, $script) = caller;
     $class->export_to_level(1, $class, @EXPORT );
 
@@ -48,7 +60,7 @@ sub route_exists {
     $test_name ||= "a route exists for $method $path";
     
     $req = Dancer::Request->new_for_request($method => $path);
-    ok(Dancer::Route->find($path, $method, $req), $test_name);
+    ok(Dancer::App->find_route_through_apps($req), $test_name);
 }
 
 sub route_doesnt_exist {
@@ -58,7 +70,7 @@ sub route_doesnt_exist {
     $test_name ||= "no route exists for $method $path";
 
     $req = Dancer::Request->new_for_request($method => $path);
-    ok((!defined(Dancer::Route->find($path, $method, $req))), $test_name);
+    ok(! defined(Dancer::App->find_route_through_apps($req)), $test_name);
 }
 
 # Response status
@@ -144,6 +156,16 @@ sub response_is_file {
     my $response = _get_file_response($req);
     ok(defined($response), $test_name);
 }
+
+sub response_headers_are_deeply {
+    my ($req, $expected, $test_name) = @_;
+    $test_name ||= "headers are as expected for @$req";
+
+    my $response = _get_response($req);
+    is_deeply($response->{headers}, $expected, $test_name);
+}
+
+# private
 
 sub _get_response {
     my ($req) = @_;
@@ -303,6 +325,11 @@ given.
     response_content_unlike [GET => '/'], qr/Page not found/, 
         "response content looks good for GET /";
 
+=head2 response_headers_are_deeply([$method, $path], $expected, $test_name)
+
+Asserts that the response headers data structure equals the one given.
+
+    response_headers_are_deeply [GET => '/'], [ 'X-Powered-By' => 'Dancer 1.150' ];
 
 =head1 LICENSE
 

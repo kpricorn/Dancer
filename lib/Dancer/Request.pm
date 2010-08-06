@@ -32,6 +32,7 @@ Dancer::Request->attributes(
 sub agent                 { $_[0]->user_agent }
 sub remote_address        { $_[0]->{env}->{'REMOTE_ADDR'} }
 sub forwarded_for_address { $_[0]->{env}->{'X_FORWARDED_FOR'} }
+sub is_head               { $_[0]->{method} eq 'HEAD' }
 sub is_post               { $_[0]->{method} eq 'POST' }
 sub is_get                { $_[0]->{method} eq 'GET' }
 sub is_put                { $_[0]->{method} eq 'PUT' }
@@ -68,6 +69,11 @@ sub new {
     $self->_init();
 
     return $self;
+}
+
+sub to_string {
+    my ($self) = @_;
+    return "[#".$self->id."] ".$self->method." ".$self->path;
 }
 
 # helper for building a request object by hand

@@ -32,7 +32,6 @@ use base 'Exporter';
 $AUTHORITY = 'SUKRIA';
 $VERSION   = '1.1806_01';
 @EXPORT    = qw(
-  ajax
   any
   before
   cookies
@@ -93,10 +92,9 @@ $VERSION   = '1.1806_01';
 
 # Dancer's syntax
 
-sub ajax         { Dancer::Route->add_ajax(@_) }
-sub any          { Dancer::Route->add_any(@_) }
-sub before       { Dancer::Route->before_filter(@_) }
-sub captures   { Dancer::SharedData->request->params->{captures} }
+sub any          { Dancer::App->current->registry->any_add(@_) }
+sub before       { Dancer::Route::Registry->before_filter(@_) }
+sub captures     { Dancer::SharedData->request->params->{captures} }
 sub cookies      { Dancer::Cookies->cookies }
 sub config       { Dancer::Config::settings() }
 sub content_type { Dancer::Response::content_type(@_) }
@@ -112,8 +110,8 @@ sub from_yaml    { Dancer::Serializer::YAML::from_yaml(@_) }
 sub from_xml     { Dancer::Serializer::XML::from_xml(@_) }
 
 sub get {
-    Dancer::Route->add('head', @_);
-    Dancer::Route->add('get',  @_);
+    Dancer::App->current->registry->universal_add('head', @_);
+    Dancer::App->current->registry->universal_add('get', @_);
 }
 sub halt       { Dancer::Response->halt(@_) }
 sub headers    { Dancer::Response::headers(@_); }
@@ -125,11 +123,11 @@ sub mime_type  { Dancer::Config::mime_types(@_) }
 sub params     { Dancer::SharedData->request->params(@_) }
 sub pass       { Dancer::Response->pass }
 sub path       { Dancer::FileUtils::path(@_) }
-sub post       { Dancer::Route->add('post', @_) }
-sub prefix     { Dancer::Route->prefix(@_) }
-sub del        { Dancer::Route->add('delete', @_) }
-sub options    { Dancer::Route->add('options', @_) }
-sub put        { Dancer::Route->add('put', @_) }
+sub post       { Dancer::App->current->registry->universal_add('post', @_) }
+sub prefix     { Dancer::App->current->set_prefix(@_) }
+sub del        { Dancer::App->current->registry->universal_add('delete', @_) }
+sub options    { Dancer::App->current->registry->universal_add('options', @_) }
+sub put        { Dancer::App->current->registry->universal_add('put', @_) }
 sub r          { warn "'r' is DEPRECATED use qr{} instead" ; return {regexp => $_[0]} }
 sub redirect   { Dancer::Helpers::redirect(@_) }
 sub request    { Dancer::SharedData->request }
@@ -162,16 +160,25 @@ sub var      { Dancer::SharedData->var(@_) }
 sub vars     { Dancer::SharedData->vars }
 sub warning  { goto &Dancer::Logger::warning }
 
+# FIXME handle previous usage of load_app with multiple app names
 sub load_app {
-    for my $app (@_) {
-        Dancer::Logger::core("loading application $app");
+    my ($app_name, %options) = @_;
+    Dancer::Logger::core("loading application $app_name");
+    
+    # set the application
+    my $app = Dancer::App->set_running_app($app_name);
+    
+    # Application options
+    $app->prefix($options{prefix}) if $options{prefix};
+    $app->settings($options{settings}) if $options{settings};
 
-        use lib path( dirname( File::Spec->rel2abs($0) ), 'lib' );
+    # load the application
+    use lib path( dirname( File::Spec->rel2abs($0) ), 'lib' );
+    eval "use $app_name";
+    die "unable to load application $app_name : $@" if $@;
 
-        # we want to propagate loading errors, so don't use ModuleLoader here
-        eval "use $app";
-        die "unable to load application $app : $@" if $@;
-    }
+    # restore the main application
+    Dancer::App->set_running_app('main');
 }
 
 sub load_plugin {
@@ -217,7 +224,6 @@ sub _init {
     setting logger  => 'file';
     setting confdir => $ENV{DANCER_CONFDIR} || setting('appdir');
     Dancer::Config->load;
-    Dancer::Route->init;
 }
 
 1;
@@ -279,21 +285,6 @@ If you want to see configuration examples of different deployment solutions
 involving Dancer and Plack, see L<Dancer::Deployment>.
 
 =head1 METHODS
-
-=head2 ajax
-
-Define a route for 'ajax' query. To be matched, the request must have the B<X_REQUESTED_WITH> header set to B<XMLHttpRequet>.
-
-    ajax '/list' => sub {
-       my $result = [qw/one two three/];
-       to_json($result);
-    }
-
-or
-
-    ajax ['get', 'post'] => '/list' => sub {
-        # code
-    }
 
 =head2 any
 
@@ -721,7 +712,15 @@ Tells the route handler to build a response with the current template engine:
     };
 
 The first parameter should be a template available in the views directory, the
-second one (optional) is a hashref of tokens to interpolate.
+second one (optional) is a hashref of tokens to interpolate, and the third
+(again optional) is a hashref of options.
+
+For example, to disable the layout for a specific request:
+
+    get '/' => sub {
+        template 'index.tt', {}, { layout => undef };
+    };
+
 
 =head2 to_dumper
 
@@ -791,7 +790,9 @@ Returns a fully-qualified URI for the given path:
 
 =head2 captures
 
-If there are named captures in the route Regexp, captures returns a reference to a copy of %+
+If there are named captures in the route Regexp, captures returns a reference to a copy of %+.
+
+Named captures are a feature of Perl 5.10, and are not supported in earlier versions.
 
     get qr{
 	/ (?<object> user   | ticket | comment )

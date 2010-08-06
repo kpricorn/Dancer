@@ -82,44 +82,44 @@ sub html_page {
 
 sub get_action_response {
     my $response;
-    my $request     = Dancer::SharedData->request;
-    my $path_info   = $request->path_info;
-    my $method      = $request->method;
-    my $handler     = Dancer::Route->find($path_info, $method, $request);
 
-    # init the request and build the params
-    Dancer::Route->build_params($handler, $request);
-    Dancer::SharedData->request($request);
+    # save the request before the filters are ran
+    my $request = Dancer::SharedData->request;
+    my ($method, $path) = ($request->method, $request->path);
 
-    # run the before filters
-    # if a filter has set a response, return it now.
-    Dancer::Route->run_before_filters;
-    if (Dancer::Response->exists) {
-        $response = serialize_response_if_needed(Dancer::Response->current);
+    # look for a matching route handler, for the given request
+    my $handler =
+    Dancer::App->find_route_through_apps(Dancer::SharedData->request);
+
+    # run the before filters, before "running" the route handler
+    for my $app (Dancer::App->applications ) {
+        $_->() for @{ $app->registry->before_filters };
     }
 
     # recurse if something has changed
     my $limit = 0;
     my $MAX_RECURSIVE_LOOP = 10;
-    if (($path_info ne Dancer::SharedData->request->path_info) ||
+    if (($path ne Dancer::SharedData->request->path) ||
         ($method ne Dancer::SharedData->request->method)) {
         $limit++;
         if ($limit > $MAX_RECURSIVE_LOOP) {
-            die "infinite loop detected, check your route/filters for '$method $path_info'";
+            die "infinite loop detected, "
+              . "check your route/filters for "
+              . $method . ' ' . $path;
         }
         return get_action_response();
     }
 
     # execute the action
     if ($handler) {
-        # if a filter has set a response before, return it
-        return $response if defined $response;
-        undef $response;
+        # a response may exist, produced by a before filter
+        return serialize_response_if_needed(Dancer::Response->current)
+            if Dancer::Response->exists;
 
-        $response = Dancer::Route->call($handler);
-        Dancer::Logger::core("route: ".$handler->{route});
-
-        return serialize_response_if_needed($response); #200
+        # else, get the route handler's response
+        Dancer::App->current($handler->app);
+        $response = $handler->run($request);
+        return serialize_response_if_needed($response);
     }
     else {
         return undef; # 404
