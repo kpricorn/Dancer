@@ -1,4 +1,5 @@
 package Dancer::Test;
+
 # test helpers for Dancer apps
 
 use strict;
@@ -15,37 +16,37 @@ use base 'Exporter';
 use vars '@EXPORT';
 
 @EXPORT = qw(
-    route_exists
-    route_doesnt_exist
+  route_exists
+  route_doesnt_exist
 
-    response_exists
-    response_doesnt_exist
+  response_exists
+  response_doesnt_exist
 
-    response_status_is
-    response_status_isnt
-    
-    response_content_is
-    response_content_isnt
-    response_content_is_deeply
-    response_content_like
-    response_content_unlike
+  response_status_is
+  response_status_isnt
 
-    response_is_file
+  response_content_is
+  response_content_isnt
+  response_content_is_deeply
+  response_content_like
+  response_content_unlike
+  response_is_file
 
-    response_headers_are_deeply
+  response_headers_are_deeply
+  get_response
 );
 
 sub import {
     my ($class, %options) = @_;
 
     # mimic PSGI env
-    $ENV{SERVERNAME} = 'localhost';
-    $ENV{HTTP_HOST} = 'localhost';
-    $ENV{SERVER_PORT} = 80;
+    $ENV{SERVERNAME}        = 'localhost';
+    $ENV{HTTP_HOST}         = 'localhost';
+    $ENV{SERVER_PORT}       = 80;
     $ENV{'psgi.url_scheme'} = 'http';
 
     my ($package, $script) = caller;
-    $class->export_to_level(1, $class, @EXPORT );
+    $class->export_to_level(1, $class, @EXPORT);
 
     $options{appdir} ||= '..';
     Dancer::_init($options{appdir});
@@ -58,7 +59,7 @@ sub route_exists {
 
     my ($method, $path) = @$req;
     $test_name ||= "a route exists for $method $path";
-    
+
     $req = Dancer::Request->new_for_request($method => $path);
     ok(Dancer::App->find_route_through_apps($req), $test_name);
 }
@@ -70,7 +71,7 @@ sub route_doesnt_exist {
     $test_name ||= "no route exists for $method $path";
 
     $req = Dancer::Request->new_for_request($method => $path);
-    ok(! defined(Dancer::App->find_route_through_apps($req)), $test_name);
+    ok(!defined(Dancer::App->find_route_through_apps($req)), $test_name);
 }
 
 # Response status
@@ -79,7 +80,7 @@ sub response_exists {
     my ($req, $test_name) = @_;
     $test_name ||= "a response is found for @$req";
 
-    my $response = _get_response($req);
+    my $response = get_response($req);
     ok(defined($response), $test_name);
 }
 
@@ -87,7 +88,7 @@ sub response_doesnt_exist {
     my ($req, $test_name) = @_;
     $test_name ||= "no response found for @$req";
 
-    my $response = _get_response($req);
+    my $response = get_response($req);
     ok(!defined($response), $test_name);
 }
 
@@ -95,7 +96,7 @@ sub response_status_is {
     my ($req, $status, $test_name) = @_;
     $test_name ||= "response status is $status for @$req";
 
-    my $response = _get_response($req); 
+    my $response = get_response($req);
     is $response->{status}, $status, $test_name;
 }
 
@@ -103,7 +104,7 @@ sub response_status_isnt {
     my ($req, $status, $test_name) = @_;
     $test_name ||= "response status is not $status for @$req";
 
-    my $response = _get_response($req); 
+    my $response = get_response($req);
     isnt $response->{status}, $status, $test_name;
 }
 
@@ -113,7 +114,7 @@ sub response_content_is {
     my ($req, $matcher, $test_name) = @_;
     $test_name ||= "response content looks good for @$req";
 
-    my $response = _get_response($req); 
+    my $response = get_response($req);
     is $response->{content}, $matcher, $test_name;
 }
 
@@ -121,7 +122,7 @@ sub response_content_isnt {
     my ($req, $matcher, $test_name) = @_;
     $test_name ||= "response content looks good for @$req";
 
-    my $response = _get_response($req); 
+    my $response = get_response($req);
     isnt $response->{content}, $matcher, $test_name;
 }
 
@@ -129,7 +130,7 @@ sub response_content_like {
     my ($req, $matcher, $test_name) = @_;
     $test_name ||= "response content looks good for @$req";
 
-    my $response = _get_response($req); 
+    my $response = get_response($req);
     like $response->{content}, $matcher, $test_name;
 }
 
@@ -137,7 +138,7 @@ sub response_content_unlike {
     my ($req, $matcher, $test_name) = @_;
     $test_name ||= "response content looks good for @$req";
 
-    my $response = _get_response($req); 
+    my $response = get_response($req);
     unlike $response->{content}, $matcher, $test_name;
 }
 
@@ -145,7 +146,7 @@ sub response_content_is_deeply {
     my ($req, $matcher, $test_name) = @_;
     $test_name ||= "response content looks good for @$req";
 
-    my $response = _get_response($req); 
+    my $response = get_response($req);
     is_deeply $response->{content}, $matcher, $test_name;
 }
 
@@ -161,13 +162,13 @@ sub response_headers_are_deeply {
     my ($req, $expected, $test_name) = @_;
     $test_name ||= "headers are as expected for @$req";
 
-    my $response = _get_response($req);
+    my $response = get_response($req);
     is_deeply($response->{headers}, $expected, $test_name);
 }
 
 # private
 
-sub _get_response {
+sub get_response {
     my ($req) = @_;
     my ($method, $path, $params, $headers) = @$req;
     my $request = Dancer::Request->new_for_request($method => $path, $params);
@@ -195,6 +196,7 @@ sub _get_handler_response {
 
 1;
 __END__
+
 =pod
 
 =head1 NAME
@@ -330,6 +332,26 @@ given.
 Asserts that the response headers data structure equals the one given.
 
     response_headers_are_deeply [GET => '/'], [ 'X-Powered-By' => 'Dancer 1.150' ];
+
+=head2 get_response([$method, $path])
+
+Returns a Dancer::Response object for the given request. The status and content
+can both be accessed with this object. A good reason to use this function is for
+testing POST requests. Since POST requests may not be idempotent, it is
+necessary to capture the content and status in one shot. Calling the
+response_status_is and response_content_is functions in succession would make
+two requests, each of which could alter the state of the application and cause
+Schrodinger's cat to die.
+
+    my $response = get_response [POST => '/widgets'];
+    is $response->{status}, 202, "response for POST /widgets is 202";
+    is $response->{content}, "Widget #1 has been scheduled for creation",
+        "response content looks good for first POST /widgets";
+
+    $response = get_response [POST => '/widgets'];
+    is $response->{status}, 202, "response for POST /widgets is 202";
+    is $response->{content}, "Widget #2 has been scheduled for creation",
+        "response content looks good for second POST /widgets";
 
 =head1 LICENSE
 
