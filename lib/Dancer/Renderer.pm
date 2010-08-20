@@ -183,14 +183,18 @@ sub get_mime_type {
     return defined($mime) ? $mime : 'text/plain';
 }
 
-# set of builtin templates needed by Dancer when rendering HTML pages
 sub templates {
     my $charset = setting('charset') || 'UTF-8';
     my $request = Dancer::SharedData->request();
     my $base = "";
     $base = $request->base() if defined($request);
+    {   default =>
+          '<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<title><% title %></title>
 <link rel="stylesheet" href="'.$base.'/css/<% style %>.css" />
-<meta charset=' . $charset . '" />
+<meta charset='.$charset.'" />
 </head>
 <body>
 <h1><% title %></h1>
@@ -202,8 +206,7 @@ Powered by <a href="http://perldancer.org/">Dancer</a> <% version %>
 </footer>
 </body>
 </html>',
-    };
+    }
 }
-
 
 1;
