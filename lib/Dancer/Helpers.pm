@@ -31,9 +31,12 @@ sub send_file {
 
 sub template {
     my ($view, $tokens, $options) = @_;
-    $options ||= {layout => 1};
-    my $layout = setting('layout');
-    undef $layout unless $options->{layout};
+
+    my $app = Dancer::App->current;
+
+    $options ||= {layout => 0};
+    my $layout = $options->{layout} ? $options->{layout} : $app->setting('layout');
+    undef $layout unless defined ($options->{layout});
 
     $tokens ||= {};
     $tokens->{request} = Dancer::SharedData->request;
@@ -43,6 +46,7 @@ sub template {
     }
 
     $view = Dancer::Template->engine->view($view);
+
     if (!-r $view) {
         my $error = Dancer::Error->new(
             code    => 404,
@@ -50,6 +54,8 @@ sub template {
         );
         return Dancer::Response::set($error->render);
     }
+
+    $_->($tokens) for (@{$app->registry->hooks->{before_template}});
 
     my $content = Dancer::Template->engine->render($view, $tokens);
     return $content if not defined $layout;
@@ -68,10 +74,11 @@ sub error {
 
 sub redirect {
     my ($destination, $status) = @_;
-    if($destination =~ m!^(\w://)?/!) {
+    if ($destination =~ m!^(\w://)?/!) {
+
         # no absolute uri here, build one, RFC 2616 forces us to do so
         my $request = Dancer::SharedData->request;
-        $destination = $request->uri_for( $destination, {}, 1 );
+        $destination = $request->uri_for($destination, {}, 1);
     }
     Dancer::Response::status($status || 302);
     Dancer::Response::headers('Location' => $destination);

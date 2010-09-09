@@ -1,3 +1,104 @@
+    [ Franck Cuny ]
+    * implemented GH#120:
+      - methods {to,from}_{xml,json,yaml} accept more than one arguments. The
+        first argument is the data to transform. All the remainings arguments
+        are parameters to alter the behavior of the serializers. Refer to the
+        documentation for more informations.
+
+Dancer 1.1811
+
+    [ Franck Cuny ]
+    * FIX for issue #113 and #112
+
+    [ Naveed Massjouni ]
+    * FIX for issues #111 and #108
+
+Dancer 1.1810
+
+    [ Naveed Massjouni ]
+    * FIX for issue #108
+      replaced Clone::clone() with Storable::dclone().
+    * Fixed the plan of one of the test files.
+
+    [ Alexis Sukrieh ]
+    * Fix a test that depends on YAML (pass if not present)
+      (Smoker failure '2010-08-30T11:07:59Z').
+
+Dancer 1.1809
+
+    [ Franck Cuny ]
+    * update Deployement.pod and Cookbook.pod
+    * fix bug in route building with prefix
+    * don't use app.psgi anymore in generated scripts
+    * fix GH#106: serializer
+    * fix bug in PSGI handler using HTTP::Headers when using some header
+    * fix bug in ajax query
+    * more tests
+
+    [ Naveen ]
+    * support for route specific layouts 
+
+    [ Alexis Sukrieh ]
+    * fix plan for t/03_route_handler/24_named_captures.t
+
+Dancer 1.1808
+
+    [ Alexis Sukrieh ]
+    * FIX test failures 
+      - t/08_session/07_session_expires.t
+      - t/08_session/07_session_expires.t
+
+Dancer 1.1807
+
+    [ Sawyer X ]
+    * Fix for RT #60403: removing Test::Exception requirement
+
+    [ Alexis Sukrieh ]
+    * Global rewrite of Dancer's core to allow support for
+      sub-application, better route resolution and a better design.
+    * Support for mountable applications via "load_app".
+      Mounted applications can have their own settings registry and 
+      can be mounted under a given prefix.
+    
+    [ Franck Cuny ]
+    * Support for new hooks:
+      - after: to allow response post-processing
+      - before_template: to allow defaut tokens to be given at anytime
+        to the template function.
+    * Fix and test for bug  RT#57829 
+      (Custom response headers lost when using JSON serializer)
+    * FIX PSGI compatibility layer (request->path_info is used when appropriate
+      instead of request->path)
+    * FIX for GH#100
+      When loading a module, it's possible to require a minimal
+      version.
+    * New option "ajax" for route handlers.
+    * Fix a bug in ajax route when processing the route resolution
+      (when a route is defined with options, it's pushed in the
+      beggining of the route handler tree).
+
+    [ jamhed ]
+    * Support for new setting "session_expire" in order to allow
+      session cookies to expire before the browser is closed.
+     
+    [ Naveed Massjouni ]
+    * Dancer::Test can now test requests with a body
+
+Dancer 1.1806_02
+
+    [James Aitken]
+    * fix issues GH #84 #86 and #87 (failing tests on < 5.10 due to regex with named captures)
+
+    [franck cuny]
+    * update cookbook
+
+    [François Charlier]
+    * fix for GH#76 and GH#88
+
+    [David Precious]
+    * Add Dancer::Plugins POD, describing useful plugins
+    * Extend sessions & logging in entry in cookbook
+
 Dancer 1.1806_01
 
     [ sebastian de castelberg ]

@@ -5,31 +5,30 @@ use base 'Dancer::Object';
 
 sub init {
     my ($self, %params) = @_;
-    $self->{_headers} = {};
+    $self->{_headers}      = {};
+    $self->{_headers_type} = undef;
 
     my $headers = $params{headers};
 
     if (ref($headers) eq 'ARRAY') {
         my $parsed = {};
 
-        for (my $i=0; $i<scalar(@$headers); $i+=2) {
+        for (my $i = 0; $i < scalar(@$headers); $i += 2) {
             my ($key, $value) = ($headers->[$i], $headers->[$i + 1]);
             if (defined $parsed->{$key}) {
-                $parsed->{$key} = [ $parsed->{$key} ];
+                $parsed->{$key} = [$parsed->{$key}];
                 push @{$parsed->{$key}}, $value;
             }
             else {
                 $parsed->{$key} = $value;
             }
         }
-        $self->{_headers} = $parsed;
+        $self->{_headers}      = $parsed;
+        $self->{_headers_type} = 'standalone';
     }
     elsif (ref($headers) eq 'HTTP::Headers') {
-        my @headers = $headers->header_field_names;
-        for my $h (@headers) {
-            my @values = $headers->header($h);
-            $self->{_headers}{$h} = (@values == 1) ? $values[0] : \@values;
-        }
+        $self->{_headers}      = $headers;
+        $self->{_headers_type} = 'http_headers';
     }
     else {
         die "unsupported headers: $headers";
@@ -40,18 +39,38 @@ sub init {
 
 sub get {
     my ($self, $header) = @_;
-    my $value = $self->{_headers}{$header};
 
-    return undef unless defined $value;
+    my $value;
+
+    if ($self->{_headers_type} eq 'standalone') {
+        $value = $self->{_headers}{$header};
+    }
+    else {
+        $value = $self->{_headers}->header($header);
+    }
+
+    return unless defined $value;
     return $value unless ref($value);
     return wantarray ? @$value : $value->[0];
 }
 
-sub get_all { $_[0]->{_headers} }
+sub get_all {
+    my $self = shift;
 
+    if ($self->{_headers_type} eq 'standalone') {
+        return $self->{_headers};
+    }
+    else {
+        my $headers;
+        map { $headers->{$_} = $self->get($_) }
+          $self->{_headers}->header_field_names;
+        return $headers;
+    }
+}
 
 1;
 __END__
+
 =pod
 
 =head1 NAME 

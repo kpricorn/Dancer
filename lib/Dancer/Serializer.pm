@@ -10,12 +10,20 @@ use Dancer::Error;
 use Dancer::SharedData;
 
 my $_engine;
-sub engine {$_engine}
+
+sub engine {
+    return $_engine if $_engine;
+
+    # don't create a new serializer unless it's defined in the config
+    # (else it's created using json, and that's *not* what we want)
+    my $serializer = Dancer::App->current->setting('serializer');
+    Dancer::Serializer->init($serializer) if $serializer;
+}
 
 sub init {
-    my ( $class, $name, $config ) = @_;
+    my ($class, $name, $config) = @_;
     $name ||= 'JSON';
-    $_engine = Dancer::Engine->build( 'serializer' => $name, $config );
+    $_engine = Dancer::Engine->build('serializer' => $name, $config);
 }
 
 # takes a response object and checks whether or not it should be
@@ -23,6 +31,7 @@ sub init {
 # returns an error object if the serializer fails
 sub process_response {
     my ($class, $response) = @_;
+
     my $content = $response->{content};
 
     if (ref($content) && (ref($content) ne 'GLOB')) {
@@ -32,9 +41,11 @@ sub process_response {
         # the serializer failed, replace the response with an error object
         if ($@) {
             my $error = Dancer::Error->new(
-                code => 500,
-                message => "Serializer (".ref($_engine).") ".
-                    "failed at serializing ".$response->{content}.":\n$@",
+                code    => 500,
+                message => "Serializer ("
+                  . ref($_engine) . ") "
+                  . "failed at serializing "
+                  . $response->{content} . ":\n$@",
             );
             $response = $error->render;
         }
@@ -43,7 +54,7 @@ sub process_response {
         else {
             $response->update_headers('Content-Type' => engine->content_type);
             $response->{content_type} = engine->content_type;
-            $response->{content} = $content;
+            $response->{content}      = $content;
         }
     }
 
@@ -55,22 +66,27 @@ sub process_response {
 sub process_request {
     my ($class, $request) = @_;
 
-    return $request unless engine->support_content_type($request->content_type);
+    return $request unless engine;
+    return $request
+      unless engine->support_content_type($request->content_type);
+
     return $request unless $request->is_put || $request->is_post;
 
     my $old_params = $request->params('body');
 
     # try to deserialize
     my $new_params;
-    eval { $new_params = engine->deserialize($request->body, $request) };
+    eval { $new_params = engine->deserialize($request->body) };
     if ($@) {
-        warn "Unable to deserialize request body with ".engine()." : \n$@";
+        Dancer::Logger::core "Unable to deserialize request body with "
+          . engine()
+          . " : \n$@";
         return $request;
     }
 
     (keys %$old_params)
-        ? $request->_set_body_params({%$old_params, %$new_params})
-        : $request->_set_body_params($new_params);
+      ? $request->_set_body_params({%$old_params, %$new_params})
+      : $request->_set_body_params($new_params);
 
     return $request;
 }

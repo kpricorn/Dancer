@@ -15,11 +15,10 @@ sub new {
     my $class = shift;
 
     die "Plack::Request is needed by the PSGI handler"
-        unless Dancer::ModuleLoader->load('Plack::Request');
+      unless Dancer::ModuleLoader->load('Plack::Request');
 
-    my $self  = {};
+    my $self = {};
     bless $self, $class;
-    Dancer::Route->init();
     return $self;
 }
 
@@ -28,33 +27,39 @@ sub dance {
 
     my $app = sub {
         my $env = shift;
+        $self->init_request_headers($env);
         my $request = Dancer::Request->new($env);
-        $self->init_request_headers($request);
         $self->handle_request($request);
     };
 
     if (Dancer::Config::setting('plack_middlewares')) {
-        my $middlewares = Dancer::Config::setting('plack_middlewares');
-        die "Plack::Builder is needed for middlewares support" unless
-            Dancer::ModuleLoader->load('Plack::Builder');
-
-        my $builder = Plack::Builder->new();
-        for my $m (@$middlewares) {
-            $builder->add_middleware($m->[0], %{$m->[1]});
-        }
-        $app = $builder->to_app($app);
+        $app = $self->apply_plack_middlewares($app);
     }
 
     return $app;
 }
 
-sub init_request_headers {
-    my ($self, $request) = @_;
+sub apply_plack_middlewares {
+    my ($self, $app) = @_;
 
-    my $plack = Plack::Request->new($request->env);
+    my $middlewares = Dancer::Config::setting('plack_middlewares');
+    die "Plack::Builder is needed for middlewares support"
+      unless Dancer::ModuleLoader->load('Plack::Builder');
+
+    my $builder = Plack::Builder->new();
+    for my $m (@$middlewares) {
+        $builder->add_middleware($m->[0], %{$m->[1]});
+    }
+    $app = $builder->to_app($app);
+    $app;
+}
+
+sub init_request_headers {
+    my ($self, $env) = @_;
+
+    my $plack = Plack::Request->new($env);
     my $headers = Dancer::Headers->new(headers => $plack->headers);
     Dancer::SharedData->headers($headers);
-    $request->_build_headers();
 }
 
 1;

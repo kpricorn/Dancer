@@ -21,9 +21,13 @@ my @tests = (
 
     { args => ['--confdir=/tmp/foo'],
       expected => sub { setting('confdir') eq '/tmp/foo'} },
+    { args => ['--restart=1'],
+      expected => sub { setting('auto_reload') == 1}},
+    { args => ['--restart=0'],
+      expected => sub { setting('auto_reload') == 0}},
 );
 
-plan tests => scalar(@tests);
+plan tests => scalar(@tests) + 1;
 
 foreach my $test (@tests) {
     @ARGV = @{ $test->{args}};
@@ -31,3 +35,5 @@ foreach my $test (@tests) {
     ok($test->{expected}->(),
         "arg processing looks good for: ".join(' ', @{$test->{args}}));
 }
+
+ok(Dancer::GetOpt->print_usage());
