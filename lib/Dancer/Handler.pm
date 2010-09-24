@@ -46,12 +46,12 @@ sub handle_request {
           . $request->path_info
           . " from $ip_addr");
 
-    # deserialize the request body if possible
-    $request = Dancer::Serializer->process_request($request)
-      if setting('serializer');
-
     # save the request object
     Dancer::SharedData->request($request);
+
+    # deserialize the request body if possible
+    $request = Dancer::Serializer->process_request($request)
+      if Dancer::App->current->setting('serializer');
 
     # read cookies from client
     Dancer::Cookies->init;

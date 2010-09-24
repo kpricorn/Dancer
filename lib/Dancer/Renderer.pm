@@ -135,7 +135,7 @@ sub get_action_response {
 sub serialize_response_if_needed {
     my ($response) = @_;
     $response = Dancer::Serializer->process_response($response)
-      if setting('serializer') && $response->{content};
+      if Dancer::App->current->setting('serializer') && $response->{content};
     return $response;
 }
 
@@ -190,21 +190,22 @@ sub templates {
     my $base = "";
     $base = $request->base() if defined($request);
     
-    {   default => '<!DOCTYPE html>
-<html lang="en-US">
+    {   default => '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
 <head>
 <title><% title %></title>
 <link rel="stylesheet" href="'.$base.'/css/<% style %>.css" />
-<meta charset=' . $charset . '" />
+<meta http-equiv="Content-type" content="text/html; charset='.$charset.'" />
 </head>
 <body>
 <h1><% title %></h1>
 <div id="content">
 <% content %>
 </div>
-<footer>
+<div id="footer">
 Powered by <a href="http://perldancer.org/">Dancer</a> <% version %>
-</footer>
+</div>
 </body>
 </html>',
     };

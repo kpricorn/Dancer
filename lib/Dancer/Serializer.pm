@@ -10,7 +10,15 @@ use Dancer::Error;
 use Dancer::SharedData;
 
 my $_engine;
-sub engine {$_engine}
+
+sub engine {
+    return $_engine if $_engine;
+
+    # don't create a new serializer unless it's defined in the config
+    # (else it's created using json, and that's *not* what we want)
+    my $serializer = Dancer::App->current->setting('serializer');
+    Dancer::Serializer->init($serializer) if $serializer;
+}
 
 sub init {
     my ($class, $name, $config) = @_;
@@ -23,6 +31,7 @@ sub init {
 # returns an error object if the serializer fails
 sub process_response {
     my ($class, $response) = @_;
+
     my $content = $response->{content};
 
     if (ref($content) && (ref($content) ne 'GLOB')) {
@@ -65,10 +74,9 @@ sub process_request {
 
     my $old_params = $request->params('body');
 
-
     # try to deserialize
     my $new_params;
-    eval { $new_params = engine->deserialize($request->body, $request) };
+    eval { $new_params = engine->deserialize($request->body) };
     if ($@) {
         Dancer::Logger::core "Unable to deserialize request body with "
           . engine()
