@@ -67,6 +67,10 @@ sub handle_request {
           || Dancer::Renderer->render_error(404);
     };
     if ($@) {
+        Dancer::Logger::core(
+            'request to ' . $request->path_info . " crashed: $@"
+        );
+
         my $error = Dancer::Error->new(
             code    => 500,
             title   => "Runtime Error",
@@ -84,16 +88,15 @@ sub render_response {
 
     my $content = $response->{content};
     unless (ref($content) eq 'GLOB') {
+
         my $charset = setting('charset');
-        my $ctype   = $response->{content_type};
-        if (   $charset
-            && $ctype =~ /^text\//
-            && $ctype !~ /charset=/
-            && utf8::is_utf8($content))
-        {
+        my $ctype   = $response->header('Content-Type');
+
+        if ($charset && $ctype) {
             $content = Encode::encode($charset, $content);
             $response->update_headers(
-                'Content-Type' => "$ctype; charset=$charset");
+                'Content-Type' => "$ctype; charset=$charset")
+              if $ctype !~ /$charset/;
         }
 
         $content = [$content];

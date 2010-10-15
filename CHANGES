@@ -1,4 +1,60 @@
-Dancer 1.1901 (1.2RC1)
+Dancer 1.1999_01 (RC1)
+
+    [ Alexis Sukrieh ]
+    * FIX for utf8 content in views
+      Dancer now handles correctly templates with non-ASCII characters in views.
+      All you have to do is to set the "charset" setting in your config. Your
+      content response will then be encoded appropriately on-the-fly by Dancer.
+    * Scaffolded app sets the charset to "utf8" by default.
+    * Better design for the scaffolded app (logo, favicon and background image
+      added)
+    * Environment info available on scaffolded app 
+    * LWP is used by the dancer helper to download files
+    * jQuery 1.4.2 (minified) is included in the scaffolded app
+    * default layout uses <% request.base %> in order to support mounted apps
+      (Thanks to Naveed Massjouni and Franck Cuny for the concept/idea).
+    * The main.tt layout sources jQuery first from Google CDN and falls back to
+      the local minified version if on offline mode.
+    * New default token provided to the "template" helper: dancer_version
+    
+    [ Sebastian de Castelberg ]
+    * The dancer helper is able to download files via a transparent proxy
+      (thanks to LWP).
+
+    [ Adam J. Foxson ]
+    * FIX for issue GH#136: 
+      "readline() on closed filehandle DATA" error that appears when running
+      the app with Starman
+    
+    [ Naveed Massjouni ]
+    * Dancer::Test function get_response is renamed to dancer_response
+      get_response still works but is deprecated
+    * dispatch.f?cgi scripts use FindBin to resolve their location.
+	  FIX a bug when using symlinks.
+
+    [ Franck Cuny ]
+    * FIX for issue GH#129 
+      don't add multiple content-type to headers
+    * fix broken tests (they were testing incorrect content type)
+
+    [ Damien Krotkine ]
+    * FIX for issue GH#115
+      documentation about compression in Dancer::Deployment 
+    
+    [ David Precious ]
+    * Make the 'layout' param to the template keyword work as you'd expect and
+      allow you to set a custom layout to use, e.g.:
+      template 'templatename', {}, { layout => 'layoutname' };
+ 
+    [ Philippe Bruhat ]
+	* Make sure a plugin refuse to register a keyword twice
+
+	[ SawyerX ]
+	* Lots of documentation updates
+    * Dancer now logs caught crashes in rendering
+      (easier to debug Ajax routes)
+
+Dancer 1.1901 (1.2RC0)
 
     [ Franck Cuny ]
     * implemented GH#120:
