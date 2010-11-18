@@ -7,6 +7,7 @@ use warnings;
 use Test::More import => ['!pass'];
 
 use Carp;
+use HTTP::Headers;
 use Dancer ':syntax';
 use Dancer::App;
 use Dancer::Request;
@@ -55,6 +56,7 @@ sub import {
     # set a default session engine for tests
     setting 'session' => 'simple';
     Dancer::_init($options{appdir});
+    Dancer::Config->load;
 }
 
 # Route Registry
@@ -168,7 +170,7 @@ sub response_headers_are_deeply {
     $test_name ||= "headers are as expected for @$req";
 
     my $response = dancer_response(@$req);
-    is_deeply($response->{headers}, $expected, $test_name);
+    is_deeply($response->headers_to_array, $expected, $test_name);
 }
 
 sub dancer_response {
@@ -184,6 +186,7 @@ sub dancer_response {
     }
 
     my ($params, $body, $headers) = @$args{qw(params body headers)};
+
     if ($headers and (my @headers = @$headers)) {
         while (my $h = shift @headers) {
             if ($h =~ /content-type/i) {
@@ -194,7 +197,7 @@ sub dancer_response {
 
     my $request = Dancer::Request->new_for_request(
         $method => $path,
-        $params, $body, $headers
+        $params, $body, HTTP::Headers->new(@$headers)
     );
 
     Dancer::SharedData->request($request);
@@ -252,7 +255,7 @@ This module provides test heplers for testing Dancer apps.
 =head1 CONFIGURATON
 
 When importing Dancer::Test, the appdir is set by defaut to '..', assuming that
-your test scrtipt is directly in your t/ directory. If you put your test scrtipt
+your test script is directly in your t/ directory. If you put your test script
 deeper in the 't/' hierarchy (like in 't/routes/01_some_test.t') you'll have to
 tell Dancer::Test that the appdir is one step upper.
 
