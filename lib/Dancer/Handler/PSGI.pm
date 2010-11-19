@@ -6,7 +6,6 @@ use Carp;
 use base 'Dancer::Handler';
 
 use Dancer::GetOpt;
-use Dancer::Headers;
 use Dancer::Config;
 use Dancer::ModuleLoader;
 use Dancer::SharedData;
@@ -23,24 +22,33 @@ sub new {
     return $self;
 }
 
-sub dance {
+sub start {
     my $self = shift;
 
-    my $app = sub {
-        my $env = shift;
-        $self->init_request_headers($env);
-        my $request = Dancer::Request->new($env);
-        $self->handle_request($request);
-    };
+    my $app = $self->psgi_app();
 
     if (Dancer::Config::setting('plack_middlewares')) {
         my $middlewares = Dancer::Config::setting('plack_middlewares');
+
         croak "Plack::Builder is needed for middlewares support"
           unless Dancer::ModuleLoader->load('Plack::Builder');
 
         my $builder = Plack::Builder->new();
-        for my $m (@$middlewares) {
-            $builder->add_middleware($m->[0], %{$m->[1]});
+
+
+        # XXX remove this after 1.2
+        if (ref $middlewares eq 'HASH') {
+            carp
+              "Listing Plack middlewares as a hash ref is DEPRECATED. Must be listed as an array ref.";
+            for my $m (keys %$middlewares) {
+                $builder->add_middleware($m, @{$middlewares->{$m}});
+            }
+        }
+        else {
+            map {
+                Dancer::Logger::core "add middleware " . $_->[0];
+                $builder->add_middleware(@$_)
+            } @$middlewares;
         }
         $app = $builder->to_app($app);
     }
@@ -50,10 +58,8 @@ sub dance {
 
 sub init_request_headers {
     my ($self, $env) = @_;
-
     my $plack = Plack::Request->new($env);
-    my $headers = Dancer::Headers->new(headers => $plack->headers);
-    Dancer::SharedData->headers($headers);
+    Dancer::SharedData->headers($plack->headers);
 }
 
 1;

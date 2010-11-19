@@ -3,7 +3,7 @@ package Dancer::Renderer;
 use strict;
 use warnings;
 use Carp;
-
+use HTTP::Headers;
 use Dancer::Route;
 use Dancer::HTTP;
 use Dancer::Cookie;
@@ -18,8 +18,8 @@ use Dancer::Logger;
 use MIME::Types;
 
 BEGIN {
-	MIME::Types->new(only_complete => 1);
-};
+    MIME::Types->new(only_complete => 1);
+}
 
 sub render_file {
     return get_file_response();
@@ -55,17 +55,17 @@ sub render_error {
 sub response_with_headers {
     my $response = shift;
 
-    $response->{headers} ||= [];
-    push @{$response->{headers}},
-      ('X-Powered-By' => "Perl Dancer ${Dancer::VERSION}");
+    $response->{headers} ||= HTTP::Headers->new;
+    $response->header('X-Powered-By' => "Perl Dancer ${Dancer::VERSION}");
 
     # add cookies
     foreach my $c (keys %{Dancer::Cookies->cookies}) {
         my $cookie = Dancer::Cookies->cookies->{$c};
         if (Dancer::Cookies->has_changed($cookie)) {
-            push @{$response->{headers}}, ('Set-Cookie' => $cookie->to_header);
+            $response->header('Set-Cookie' => $cookie->to_header);
         }
     }
+
     return $response;
 }
 
@@ -116,6 +116,13 @@ sub get_action_response {
               . $path;
         }
         return get_action_response();
+    }
+
+    # redirect immediately - skip route execution
+    if (my $status = Dancer::Response::status) {
+        if ($status == 302 || $status == 301) {
+            return serialize_response_if_needed(Dancer::Response->current);
+        }
     }
 
     # execute the action
