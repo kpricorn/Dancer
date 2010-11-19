@@ -12,6 +12,9 @@ use Carp 'confess';
 
 @EXPORT_OK = qw(setting mime_types);
 
+# mergeable settings
+my %MERGEABLE = map { ($_ => 1) } qw( plugins handlers );
+
 # singleton for storing settings
 my $SETTINGS = {
 
@@ -60,11 +63,34 @@ my $setters = {
             );
         }
     },
+    traces => sub {
+        my ($setting, $traces) = @_;
+        $Carp::Verbose = $traces ? 1 : 0;
+    },
 };
+
+my $normalizers = {
+    charset => sub {
+        my ($setting, $charset) = @_;
+        $charset = 'UTF-8' if $charset =~ /utf8/i;
+        return $charset;
+    },
+};
+
+sub normalize_setting {
+    my ($class, $setting, $value) = @_;
+    $value = $normalizers->{$setting}->($setting, $value) 
+        if exists $normalizers->{$setting};
+    return $value;
+}
 
 # public accessor for get/set
 sub setting {
     my ($setting, $value) = @_;
+
+    # normalize the value if needed
+    $value = Dancer::Config->normalize_setting($setting, $value)
+        if @_ == 2;
 
     # run the hook if setter
     $setters->{$setting}->(@_)
@@ -108,7 +134,6 @@ sub load {
     confess "Configuration file found but YAML is not installed"
       unless Dancer::ModuleLoader->load('YAML');
 
-    load_default_settings();
     load_settings_from_yaml(conffile);
 
     my $env = environment_file;
@@ -131,7 +156,17 @@ sub load_settings_from_yaml {
         confess "Unable to parse the configuration file: $file: $@";
     }
 
-    @{$SETTINGS}{keys %$config} = values %$config;
+    for my $key (keys %{$config}) {
+        if ($MERGEABLE{$key}) {
+            my $setting = setting($key);
+            $setting->{$_} = $config->{$key}{$_}
+              for keys %{$config->{$key}};
+        }
+        else {
+            setting($key, $config->{$key});
+        }
+    }
+
     return scalar(keys %$config);
 }
 
@@ -146,11 +181,13 @@ sub load_default_settings {
     $SETTINGS->{apphandler}   ||= $ENV{DANCER_APPHANDLER}   || 'Standalone';
     $SETTINGS->{warnings}     ||= $ENV{DANCER_WARNINGS}     || 0;
     $SETTINGS->{auto_reload}  ||= $ENV{DANCER_AUTO_RELOAD}  || 0;
+    $SETTINGS->{traces}       ||= $ENV{DANCER_TRACES}       || 0;
     $SETTINGS->{environment} 
       ||= $ENV{DANCER_ENVIRONMENT}
       || $ENV{PLACK_ENV}
       || 'development';
 
+    setting $_              => {} for keys %MERGEABLE;
     setting template        => 'simple';
     setting import_warnings => 1;
 }
@@ -247,6 +284,11 @@ a matching template in the directory $appdir/views/layout.
 =head2 warnings (boolean)
 
 If set to true, tells Dancer to consider all warnings as blocking errors.
+
+=head2 traces (boolean)
+
+If set to true, Dancer will display full stack traces when a warning or a die
+occurs. (Internally sets Carp::Verbose). Default to false.
 
 =head2 log (enum)
 

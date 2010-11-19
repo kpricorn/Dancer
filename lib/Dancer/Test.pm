@@ -7,11 +7,13 @@ use warnings;
 use Test::More import => ['!pass'];
 
 use Carp;
+use HTTP::Headers;
 use Dancer ':syntax';
 use Dancer::App;
 use Dancer::Request;
 use Dancer::SharedData;
 use Dancer::Renderer;
+use Dancer::Config;
 
 use base 'Exporter';
 use vars '@EXPORT';
@@ -40,6 +42,7 @@ use vars '@EXPORT';
 
 sub import {
     my ($class, %options) = @_;
+    $options{appdir} ||= '..';
 
     # mimic PSGI env
     $ENV{SERVERNAME}        = 'localhost';
@@ -50,8 +53,10 @@ sub import {
     my ($package, $script) = caller;
     $class->export_to_level(1, $class, @EXPORT);
 
-    $options{appdir} ||= '..';
+    # set a default session engine for tests
+    setting 'session' => 'simple';
     Dancer::_init($options{appdir});
+    Dancer::Config->load;
 }
 
 # Route Registry
@@ -165,17 +170,36 @@ sub response_headers_are_deeply {
     $test_name ||= "headers are as expected for @$req";
 
     my $response = dancer_response(@$req);
-    is_deeply($response->{headers}, $expected, $test_name);
+    is_deeply($response->headers_to_array, $expected, $test_name);
 }
 
 sub dancer_response {
     my ($method, $path, $args) = @_;
     $args ||= {};
+
+    if ($method =~ /^(?:PUT|POST)$/ && $args->{body}) {
+        my $body = $args->{body};
+        my $l    = length $body;
+        open my $in, '<', \$body;
+        $ENV{'CONTENT_LENGTH'} = $l;
+        $ENV{'psgi.input'}     = $in;
+    }
+
     my ($params, $body, $headers) = @$args{qw(params body headers)};
+
+    if ($headers and (my @headers = @$headers)) {
+        while (my $h = shift @headers) {
+            if ($h =~ /content-type/i) {
+                $ENV{'CONTENT_TYPE'} = shift @headers;
+            }
+        }
+    }
+
     my $request = Dancer::Request->new_for_request(
         $method => $path,
-        $params, $body, $headers
+        $params, $body, HTTP::Headers->new(@$headers)
     );
+
     Dancer::SharedData->request($request);
     return Dancer::Renderer::get_action_response();
 }

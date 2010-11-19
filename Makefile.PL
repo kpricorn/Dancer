@@ -1,6 +1,21 @@
 use 5.008005;
 use ExtUtils::MakeMaker;
 
+# ctags support
+# run perl Makfefile.PL && make tags
+sub MY::postamble {
+    my $postamble = <<'MAKE_FRAG';
+.PHONY: tags
+
+tags:
+	ctags -f tags --recurse --totals \
+        --exclude=blib \
+        --exclude=.git \
+        --exclude='*.swp' \
+        --languages=Perl --langmap=Perl:+.t 
+MAKE_FRAG
+}
+
 WriteMakefile1(
     NAME         => 'Dancer',
     ABSTRACT     => "A minimal-effort oriented web application framework",
@@ -23,6 +38,7 @@ WriteMakefile1(
     PREREQ_PM => {
 
         # non-core
+        'LWP'                        => '0',
         'HTTP::Body'                 => '1.07', # needed for cleanup()
         'HTTP::Server::Simple::PSGI' => '0.11',
         'MIME::Types'                => '0',

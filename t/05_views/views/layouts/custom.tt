@@ -1,1 +1,2 @@
-it's <% content %> different!
+customstart
+<% content %>customstop

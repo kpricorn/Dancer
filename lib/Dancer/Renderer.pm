@@ -2,7 +2,8 @@ package Dancer::Renderer;
 
 use strict;
 use warnings;
-
+use Carp;
+use HTTP::Headers;
 use Dancer::Route;
 use Dancer::HTTP;
 use Dancer::Cookie;
@@ -15,6 +16,10 @@ use Dancer::FileUtils qw(path dirname read_file_content);
 use Dancer::SharedData;
 use Dancer::Logger;
 use MIME::Types;
+
+BEGIN {
+    MIME::Types->new(only_complete => 1);
+}
 
 sub render_file {
     return get_file_response();
@@ -50,17 +55,17 @@ sub render_error {
 sub response_with_headers {
     my $response = shift;
 
-    $response->{headers} ||= [];
-    push @{$response->{headers}},
-      ('X-Powered-By' => "Perl Dancer ${Dancer::VERSION}");
+    $response->{headers} ||= HTTP::Headers->new;
+    $response->header('X-Powered-By' => "Perl Dancer ${Dancer::VERSION}");
 
     # add cookies
     foreach my $c (keys %{Dancer::Cookies->cookies}) {
         my $cookie = Dancer::Cookies->cookies->{$c};
         if (Dancer::Cookies->has_changed($cookie)) {
-            push @{$response->{headers}}, ('Set-Cookie' => $cookie->to_header);
+            $response->header('Set-Cookie' => $cookie->to_header);
         }
     }
+
     return $response;
 }
 
@@ -105,7 +110,7 @@ sub get_action_response {
     {
         $limit++;
         if ($limit > $MAX_RECURSIVE_LOOP) {
-            die "infinite loop detected, "
+            croak "infinite loop detected, "
               . "check your route/filters for "
               . $method . ' '
               . $path;
@@ -201,9 +206,9 @@ sub templates {
 <div id="content">
 <% content %>
 </div>
-<footer>
+<div id="footer">
 Powered by <a href="http://perldancer.org/">Dancer</a> <% version %>
-</footer>
+</div>
 </body>
 </html>',
     }

@@ -5,17 +5,17 @@ use Test::More import => ['!pass'];
 BEGIN {
     use Dancer::ModuleLoader;
 
-    plan skip_all => "LWP::UserAgent is needed to run this tests"
-      unless Dancer::ModuleLoader->load('LWP::UserAgent');
     plan skip_all => 'Test::TCP is needed to run this test'
       unless Dancer::ModuleLoader->load('Test::TCP');
     plan skip_all => 'JSON is needed to run this test'
       unless Dancer::ModuleLoader->load('JSON');
-    plan skip_all => 'HTTP::Request is needed to run this test'
-      unless Dancer::ModuleLoader->load('HTTP::Request');
 }
 
 use Dancer;
+use LWP::UserAgent;
+use HTTP::Request;
+
+plan tests => 11;
 
 my $content_types = {'JSON' => 'application/json',};
 
@@ -67,4 +67,3 @@ sub test_json {
     );
 }
 
-done_testing;

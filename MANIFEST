@@ -1,8 +1,15 @@
+.current_cover_stats
 .gitignore
 .perlcriticrc
 .perltidyrc
 AUTHORS
 CHANGES
+examples/dancr/dancr.pl
+examples/dancr/public/css/style.css
+examples/dancr/schema.sql
+examples/dancr/views/layouts/main.tt
+examples/dancr/views/login.tt
+examples/dancr/views/show_entries.tt
 lib/Dancer.pm
 lib/Dancer/App.pm
 lib/Dancer/Config.pm
@@ -19,7 +26,6 @@ lib/Dancer/Handler.pm
 lib/Dancer/Handler/Debug.pm
 lib/Dancer/Handler/PSGI.pm
 lib/Dancer/Handler/Standalone.pm
-lib/Dancer/Headers.pm
 lib/Dancer/Helpers.pm
 lib/Dancer/HTTP.pm
 lib/Dancer/Introduction.pod
@@ -57,6 +63,7 @@ lib/Dancer/Template/Simple.pm
 lib/Dancer/Template/TemplateToolkit.pm
 lib/Dancer/Test.pm
 lib/Dancer/Timer.pm
+lib/Dancer/Tutorial.pod
 LICENSE
 Makefile.PL
 MANIFEST			This list of files
@@ -72,20 +79,22 @@ t/00_base/007_load_syntax.t
 t/00_base/06_dancer_object.t
 t/00_base/08_pod_coverage_dancer.t
 t/00_base/09_load_app.t
-t/00_base/10_headers.t
 t/00_base/11_file_utils.t
+t/00_base/12_utf8_charset.t
 t/00_base/config.t
 t/00_base/dance_start.t
 t/00_base/dancer_test.t
 t/00_base/lib/AppWithError.pm
 t/00_base/lib/WorkingApp.pm
 t/00_base/uri_for.t
+t/00_base/utf8.tt
 t/01_config/01_settings.t
 t/01_config/02_mime_type.t
 t/01_config/03_logger.t
 t/01_config/04_config_file.t
 t/01_config/05_serialiers.t
 t/01_config/06_config_api.t
+t/01_config/06_stack_trace.t
 t/01_config/environments/development.pl
 t/01_config/yaml_dependency.t
 t/02_request/01_load.t
@@ -131,6 +140,7 @@ t/03_route_handler/24_named_captures.t
 t/03_route_handler/26_after_hook.t
 t/03_route_handler/27_issue_77_pass_breaks_routes.t
 t/03_route_handler/28_plack_mount.t
+t/03_route_handler/public/404.html
 t/03_route_handler/views/hello.tt
 t/04_static_file/001_base.t
 t/04_static_file/002_mime_types.t
@@ -168,6 +178,7 @@ t/08_session/06_abstract.t
 t/08_session/07_session_expires.t
 t/08_session/08_simple.t
 t/08_session/09_session.t
+t/08_session/10_filter.t
 t/09_cookies/01_use.t
 t/09_cookies/02_cookie_object.t
 t/09_cookies/03_persistence.t
@@ -204,6 +215,7 @@ t/14_serializer/11_bug_57829.t
 t/14_serializer/12_bug_gh106.t
 t/14_serializer/13_xml.t
 t/14_serializer/14_api.t
+t/14_serializer/14_show_errors.t
 t/14_serializer/handler-helper.t
 t/15_plugins/01_register.t
 t/15_plugins/02_config.t
@@ -218,6 +230,8 @@ t/17_apps/01_settings.t
 t/17_apps/02_load_app.t
 t/17_apps/03_prefix.t
 t/17_apps/04_issue_91.t
+t/18_main_dsl/01_config.t
+t/18_main_dsl/uri_for.t
 t/lib/EasyMocker.pm
 t/lib/Forum.pm
 t/lib/LinkBlocker.pm

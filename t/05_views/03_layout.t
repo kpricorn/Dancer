@@ -17,17 +17,23 @@ my @tests = (
       expected => "view\n" },
     { path => '/full',
       expected => "start\nview\nstop\n" },
-    { path => '/nolayout',
-      expected => "view\n"},
-    { path => '/customlayout',
-      expected => "it's view\n different!"},
+    { path => '/layoutdisabled',
+      expected => "view\n" },
+    { path => '/layoutchanged',
+      expected => "customstart\nview\ncustomstop\n" },
+    { path => '/render_with_layout/default_layout',
+      expected => "start\ncontent\nstop\n" },
+    { path => '/render_with_layout/no_layout',
+      expected => "content\n" },
+    { path => '/render_with_layout/custom_layout',
+      expected => "customstart\ncontent\ncustomstop\n" },
 );
 
 plan tests => scalar(@tests);
 
 SKIP: {
     Template->import;
-
+    
     get '/solo' => sub {
         template 't03';
     };
@@ -37,13 +43,27 @@ SKIP: {
         template 't03';
     };
 
-    get '/nolayout' => sub {
+    get '/layoutdisabled' => sub {
         layout 'main';
-        template 't03', {}, {layout => undef};
+        template 't03', {}, { layout => undef };
     };
 
-    get '/customlayout' => sub {
-        template 't03', {}, {layout => 'custom'};
+    get '/layoutchanged' => sub {
+        template 't03', {}, { layout => 'custom' };
+    };
+
+    get '/render_with_layout/default_layout' => sub {
+        render_with_layout("content\n");
+    };
+
+    # Yes, render_with_layout without a layout is kind of pointless, but let's
+    # be thorough :)
+    get '/render_with_layout/no_layout' => sub {
+        render_with_layout("content\n", {}, { layout => undef });
+    };
+
+    get '/render_with_layout/custom_layout' => sub {
+        render_with_layout("content\n", {}, { layout => 'custom' });
     };
 
     foreach my $test (@tests) {
@@ -54,7 +74,7 @@ SKIP: {
 
         Dancer::SharedData->request($request);
         my $resp = Dancer::Renderer::get_action_response();
-
+    
         is($resp->{content}, $expected, "content rendered looks good for $path");
     }
-};
+}; 

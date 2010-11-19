@@ -2,6 +2,7 @@ package Dancer::Logger::Abstract;
 
 use strict;
 use warnings;
+use Carp;
 use base 'Dancer::Engine';
 
 use Dancer::SharedData;
@@ -12,7 +13,7 @@ use Dancer::Config 'setting';
 # It receives the following arguments:
 # $msg_level, $msg_content, it gets called only if the configuration allows
 # a message of the given level to be logged.
-sub _log { die "_log not implemented" }
+sub _log { confess "_log not implemented" }
 
 sub _should {
     my ($self, $msg_level) = @_;
@@ -61,3 +62,63 @@ sub warning { $_[0]->_should('warning') and $_[0]->_log('warning', $_[1]) }
 sub error   { $_[0]->_should('error')   and $_[0]->_log('error',   $_[1]) }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Dancer::Logger::Abstract - Abstract logging engine for Dancer
+
+=head1 SYNOPSIS
+
+=head1 DESCRIPTION
+
+This is an abstract logging engine that provides loggers with basic
+functionality and some sanity checking.
+
+=head1 METHODS
+
+=head2 format_message
+
+Provides a common message formatting.
+
+=head2 core
+
+Logs messages as core.
+
+=head2 debug
+
+Logs messages as debug.
+
+=head2 warning
+
+Logs messages as warning.
+
+=head2 error
+
+Logs messages as error.
+
+=head2 _log
+
+A method to override. If your logger does not provide this, it will cause the
+application to die.
+
+=head2 _should
+
+Checks a certain level number against a certain level type (core, debug,
+warning, error).
+
+=head1 AUTHOR
+
+Alexis Sukrieh
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright 2009-2010 Alexis Sukrieh.
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of either: the GNU General Public License as published
+by the Free Software Foundation; or the Artistic License.
+
+See http://dev.perl.org/licenses/ for more information.
+

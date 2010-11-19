@@ -9,14 +9,15 @@ BEGIN {
       unless Dancer::ModuleLoader->load('Test::TCP');
     plan skip_all => "Plack is needed to run this test"
       unless Dancer::ModuleLoader->load('Plack::Builder');
-    plan skip_all => "HTTP::Request is needed to run this test"
-      unless Dancer::ModuleLoader->load('HTTP::Request');
-    plan skip_all => "LWP::UserAgent is needed to run this test"
-      unless Dancer::ModuleLoader->load('LWP::UserAgent');
 }
+
+use HTTP::Request;
+use LWP::UserAgent;
 
 use Plack::Builder; # should be loaded in BEGIN block, but it seems that it's not the case ...
 use HTTP::Server::Simple::PSGI;
+
+plan tests => 3;
 
 Test::TCP::test_tcp(
     client => sub {
@@ -56,5 +57,3 @@ Test::TCP::test_tcp(
         $server->run;
     },
 );
-
-done_testing;
