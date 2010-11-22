@@ -2,6 +2,9 @@ package Dancer::Handler;
 
 use strict;
 use warnings;
+use Carp 'croak';
+
+use HTTP::Headers;
 
 use Dancer::Logger;
 use Dancer::GetOpt;
@@ -14,25 +17,26 @@ use Encode;
 
 # This is where we choose which application handler to return
 sub get_handler {
-    my $handler;
+    my $handler = 'Dancer::Handler::Standalone';
 
+    # force PSGI is PLACK_ENV is set
     if ($ENV{'PLACK_ENV'}) {
-        $handler = 'Dancer::Handler::PSGI';
+        Dancer::Logger::core("PLACK_ENV is set (".$ENV{'PLACK_ENV'}.") forcing PSGI handler");
         setting('apphandler'  => 'PSGI');
         setting('environment' => $ENV{'PLACK_ENV'});
     }
 
-    my $app_handler = setting('apphandler') || 'Standalone';
-    $handler = 'Dancer::Handler::' . $app_handler;
+    # if Plack is detected or set by conf, use the PSGI handler
+    $handler = 'Dancer::Handler::PSGI' 
+        if (setting('apphandler') eq 'PSGI');
 
-    if (Dancer::ModuleLoader->load($handler)) {
-        Dancer::Logger::core('loading ' . $app_handler . ' handler');
-        return $handler->new;
-    }
-    else {
-        setting('apphandler', 'Standalone');
-        return get_handler();
-    }
+    # load the app handler
+    my ($loaded, $error) = Dancer::ModuleLoader->load($handler);
+    croak "Unable to load app handler `$handler': $error" if $error;
+
+    # OK, everything's fine, load the handler
+    Dancer::Logger::core('loading ' . $handler . ' handler');
+    return $handler->new;
 }
 
 # handle an incoming request, process it and return a response
@@ -54,6 +58,7 @@ sub handle_request {
       if Dancer::App->current->setting('serializer');
 
     # read cookies from client
+
     Dancer::Cookies->init;
 
     if (Dancer::Config::setting('auto_reload')) {
@@ -67,6 +72,9 @@ sub handle_request {
           || Dancer::Renderer->render_error(404);
     };
     if ($@) {
+        Dancer::Logger::core(
+            'request to ' . $request->path_info . " crashed: $@");
+
         my $error = Dancer::Error->new(
             code    => 500,
             title   => "Runtime Error",
@@ -77,6 +85,29 @@ sub handle_request {
     return $self->render_response($response);
 }
 
+sub psgi_app {
+    my $self = shift;
+    sub {
+        my $env = shift;
+        $self->init_request_headers($env);
+        my $request = Dancer::Request->new($env);
+        $self->handle_request($request);
+    };
+}
+
+sub init_request_headers {
+    my ($self, $env) = @_;
+
+    my $psgi_headers = HTTP::Headers->new(
+        map {
+            (my $field = $_) =~ s/^HTTPS?_//;
+            ($field => $env->{$_});
+          }
+          grep {/^(?:HTTP|CONTENT|COOKIE)/i} keys %$env
+    );
+    Dancer::SharedData->headers($psgi_headers);
+}
+
 # render a PSGI-formated response from a response built by
 # handle_request()
 sub render_response {
@@ -84,16 +115,14 @@ sub render_response {
 
     my $content = $response->{content};
     unless (ref($content) eq 'GLOB') {
+
         my $charset = setting('charset');
-        my $ctype   = $response->{content_type};
-        if (   $charset
-            && $ctype =~ /^text\//
-            && $ctype !~ /charset=/
-            && utf8::is_utf8($content))
-        {
+        my $ctype   = $response->header('Content-Type');
+
+        if ($charset && $ctype && _is_text($ctype)) {
             $content = Encode::encode($charset, $content);
-            $response->update_headers(
-                'Content-Type' => "$ctype; charset=$charset");
+            $response->header('Content-Type' => "$ctype; charset=$charset")
+              if $ctype !~ /$charset/;
         }
 
         $content = [$content];
@@ -101,7 +130,12 @@ sub render_response {
 
     Dancer::Logger::core("response: " . $response->{status});
     Dancer::SharedData->reset_all();
-    return [$response->{status}, $response->{headers}, $content];
+    return [$response->{status}, $response->headers_to_array, $content];
+}
+
+sub _is_text {
+    my ($content_type) = @_;
+    return $content_type =~ /(text|json)/;
 }
 
 # Fancy banner to print on startup
@@ -111,5 +145,7 @@ sub print_banner {
         print "== Entering the $env dance floor ...\n";
     }
 }
+
+sub dance { (shift)->start(@_) }
 
 1;

@@ -2,8 +2,10 @@ package Dancer::Session::YAML;
 
 use strict;
 use warnings;
+use Carp;
 use base 'Dancer::Session::Abstract';
 
+use Dancer::Logger;
 use Dancer::ModuleLoader;
 use Dancer::Config 'setting';
 use Dancer::FileUtils 'path';
@@ -13,7 +15,7 @@ use Dancer::FileUtils 'path';
 sub init {
     my ($class) = @_;
 
-    die "YAML is needed and is not installed"
+    croak "YAML is needed and is not installed"
       unless Dancer::ModuleLoader->load('YAML');
 
     # default value for session_dir
@@ -24,9 +26,9 @@ sub init {
     my $session_dir = setting('session_dir');
     if (!-d $session_dir) {
         mkdir $session_dir
-          or die "session_dir $session_dir cannot be created";
+          or croak "session_dir $session_dir cannot be created";
     }
-    Dancer::Logger->debug("session_dir : $session_dir");
+    Dancer::Logger::core("session_dir : $session_dir");
 }
 
 # create a new session and return the newborn object
@@ -56,12 +58,14 @@ sub yaml_file {
 
 sub destroy {
     my ($self) = @_;
+    use Dancer::Logger;
+    Dancer::Logger::core("trying to remove session file: ".yaml_file($self->id));
     unlink yaml_file($self->id) if -f yaml_file($self->id);
 }
 
 sub flush {
     my $self = shift;
-    open(my $sessionfh, '>', yaml_file($self->id)) or die $!;
+    open(my $sessionfh, '>', yaml_file($self->id)) or croak $!;
     print {$sessionfh} YAML::Dump($self);
     close $sessionfh;
     return $self;

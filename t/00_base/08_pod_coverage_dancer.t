@@ -15,5 +15,8 @@ eval "use Pod::Coverage $min_pc";
 plan skip_all => "Pod::Coverage $min_pc required for testing POD coverage"
     if $@;
 
+plan tests => 2;
+
 pod_coverage_ok('Dancer');
-done_testing;
+pod_coverage_ok('Dancer::Request');
+

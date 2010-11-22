@@ -5,19 +5,19 @@ use Test::More import => ['!pass'];
 BEGIN {
     use Dancer::ModuleLoader;
 
-    plan skip_all => "LWP::UserAgent is needed to run this tests"
-        unless Dancer::ModuleLoader->load('LWP::UserAgent');
     plan skip_all => 'Test::TCP is needed to run this test'
         unless Dancer::ModuleLoader->load('Test::TCP');
     plan skip_all => 'YAML is needed to run this test'
         unless Dancer::ModuleLoader->load('YAML');
     plan skip_all => 'JSON is needed to run this test'
         unless Dancer::ModuleLoader->load('JSON');
-    plan skip_all => 'HTTP::Request is needed to run this test'
-        unless Dancer::ModuleLoader->load('HTTP::Request');
 }
 
 use Dancer;
+use LWP::UserAgent;
+use HTTP::Request;
+
+plan tests => 30;
 
 test_json();
 test_yaml();
@@ -81,6 +81,7 @@ sub test_json {
             Dancer::Config->load;
             setting access_log => 0;
             setting port       => $port;
+            setting show_errors => 1;
             Dancer->dance();
         },
     );
@@ -139,6 +140,7 @@ sub test_yaml {
             Dancer::Config->load;
             setting port       => $port;
             setting access_log => 0;
+            setting show_errors => 1;
             Dancer->dance();
         },
     );
@@ -194,4 +196,3 @@ sub test_mutable {
     );
 }
 
-done_testing;

@@ -18,6 +18,7 @@ my $SETTINGS = {
     # user defined mime types
     mime_types => {},
 };
+
 sub settings {$SETTINGS}
 
 my $setters = {
@@ -60,20 +61,64 @@ my $setters = {
             );
         }
     },
+    traces => sub {
+        my ($setting, $traces) = @_;
+        $Carp::Verbose = $traces ? 1 : 0;
+    },
 };
+
+my $normalizers = {
+    charset => sub {
+        my ($setting, $charset) = @_;
+        $charset = 'UTF-8' if $charset =~ /utf8/i;
+        return $charset;
+    },
+};
+
+sub normalize_setting {
+    my ($class, $setting, $value) = @_;
+
+    $value = $normalizers->{$setting}->($setting, $value)
+      if exists $normalizers->{$setting};
+
+    return $value;
+}
 
 # public accessor for get/set
 sub setting {
     my ($setting, $value) = @_;
 
-    # run the hook if setter
-    $setters->{$setting}->(@_)
-      if (@_ == 2) && defined $setters->{$setting};
+    if (@_ == 2) {
+        $value = _set_setting($setting, $value);
+        _trigger_hooks($setting, $value);
+        return $value;
+    }
+    else {
+        return _get_setting($setting);
+    }
+}
 
-    # setter/getter
-    (@_ == 2)
-      ? $SETTINGS->{$setting} = $value
-      : $SETTINGS->{$setting};
+sub _trigger_hooks {
+    my ($setting, $value) = @_;
+
+    $setters->{$setting}->(@_) if defined $setters->{$setting};
+}
+
+sub _set_setting {
+    my ($setting, $value) = @_;
+
+    return unless @_ == 2;
+
+    # normalize the value if needed
+    $value = Dancer::Config->normalize_setting($setting, $value);
+    $SETTINGS->{$setting} = $value;
+    return $value;
+}
+
+sub _get_setting {
+    my $setting = shift;
+
+    return $SETTINGS->{$setting};
 }
 
 sub mime_types {
@@ -126,11 +171,10 @@ sub load_settings_from_yaml {
 
     my $config = YAML::LoadFile($file)
       or confess "Unable to parse the configuration file: $file";
+    _set_setting($_, $config->{$_}) for (keys %{$config});
 
-    @{$SETTINGS}{keys %$config} = values %$config;
     return scalar(keys %$config);
 }
-
 
 sub load_default_settings {
     $SETTINGS->{server}       ||= $ENV{DANCER_SERVER}       || '0.0.0.0';
@@ -142,6 +186,7 @@ sub load_default_settings {
     $SETTINGS->{apphandler}   ||= $ENV{DANCER_APPHANDLER}   || 'Standalone';
     $SETTINGS->{warnings}     ||= $ENV{DANCER_WARNINGS}     || 0;
     $SETTINGS->{auto_reload}  ||= $ENV{DANCER_AUTO_RELOAD}  || 0;
+    $SETTINGS->{traces}       ||= $ENV{DANCER_TRACES}       || 0;
     $SETTINGS->{environment} 
       ||= $ENV{DANCER_ENVIRONMENT}
       || $ENV{PLACK_ENV}
@@ -243,6 +288,11 @@ a matching template in the directory $appdir/views/layout.
 =head2 warnings (boolean)
 
 If set to true, tells Dancer to consider all warnings as blocking errors.
+
+=head2 traces (boolean)
+
+If set to true, Dancer will display full stack traces when a warning or a die
+occurs. (Internally sets Carp::Verbose). Default to false.
 
 =head2 log (enum)
 

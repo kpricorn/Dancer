@@ -1,8 +1,8 @@
-package t::lib::TestApp;
+package TestApp;
 
 use Dancer;
 use Data::Dumper;
-use t::lib::LinkBlocker;
+use LinkBlocker;
 
 block_links_from "www.foo.com";
 
@@ -12,6 +12,7 @@ get '/with_headers' => sub {
     header 'X-Foo-Dancer' => 42;
     1;
 };
+get '/headers_again' => sub { request->header('X-Foo-Dancer') };
 
 
 get '/test_app_setting' => sub {
@@ -60,6 +61,10 @@ get '/read_session' => sub {
 
 put '/jsondata' => sub {
     request->body;
+};
+
+post '/form' => sub {
+    params->{foo};
 };
 
 get '/unicode' => sub {
