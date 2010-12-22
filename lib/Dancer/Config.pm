@@ -8,7 +8,9 @@ use vars '@EXPORT_OK';
 use Dancer::Template;
 use Dancer::ModuleLoader;
 use Dancer::FileUtils 'path';
-use Carp 'confess';
+use Carp;
+
+use Encode;
 
 @EXPORT_OK = qw(setting mime_types);
 
@@ -21,6 +23,7 @@ my $SETTINGS = {
     # user defined mime types
     mime_types => {},
 };
+
 sub settings {$SETTINGS}
 
 my $setters = {
@@ -72,15 +75,26 @@ my $setters = {
 my $normalizers = {
     charset => sub {
         my ($setting, $charset) = @_;
-        $charset = 'UTF-8' if $charset =~ /utf8/i;
-        return $charset;
+        length($charset || '')
+          or return $charset;
+        my $encoding = Encode::find_encoding($charset);
+        defined $encoding
+          or croak "Charset defined in configuration is wrong : couldn't identify '$charset'";
+        my $name = $encoding->name;
+        # Perl makes a distinction between the usual perl utf8, and the strict
+        # utf8 charset. But we don't want to make this distinction
+        $name eq 'utf-8-strict'
+          and $name = 'utf-8';
+        return $name;
     },
 };
 
 sub normalize_setting {
     my ($class, $setting, $value) = @_;
-    $value = $normalizers->{$setting}->($setting, $value) 
-        if exists $normalizers->{$setting};
+
+    $value = $normalizers->{$setting}->($setting, $value)
+      if exists $normalizers->{$setting};
+
     return $value;
 }
 
@@ -88,18 +102,37 @@ sub normalize_setting {
 sub setting {
     my ($setting, $value) = @_;
 
+    if (@_ == 2) {
+        $value = _set_setting($setting, $value);
+        _trigger_hooks($setting, $value);
+        return $value;
+    }
+    else {
+        return _get_setting($setting);
+    }
+}
+
+sub _trigger_hooks {
+    my ($setting, $value) = @_;
+
+    $setters->{$setting}->(@_) if defined $setters->{$setting};
+}
+
+sub _set_setting {
+    my ($setting, $value) = @_;
+
+    return unless @_ == 2;
+
     # normalize the value if needed
-    $value = Dancer::Config->normalize_setting($setting, $value)
-        if @_ == 2;
+    $value = Dancer::Config->normalize_setting($setting, $value);
+    $SETTINGS->{$setting} = $value;
+    return $value;
+}
 
-    # run the hook if setter
-    $setters->{$setting}->(@_)
-      if (@_ == 2) && defined $setters->{$setting};
+sub _get_setting {
+    my $setting = shift;
 
-    # setter/getter
-    (@_ == 2)
-      ? $SETTINGS->{$setting} = $value
-      : $SETTINGS->{$setting};
+    return $SETTINGS->{$setting};
 }
 
 sub mime_types {
@@ -152,24 +185,22 @@ sub load_settings_from_yaml {
     my $config;
 
     eval { $config = YAML::LoadFile($file) };
-    if ( my $err = $@ || (!$config)) {
+    if (my $err = $@ || (!$config)) {
         confess "Unable to parse the configuration file: $file: $@";
     }
 
     for my $key (keys %{$config}) {
         if ($MERGEABLE{$key}) {
             my $setting = setting($key);
-            $setting->{$_} = $config->{$key}{$_}
-              for keys %{$config->{$key}};
+            $setting->{$_} = $config->{$key}{$_} for keys %{$config->{$key}};
         }
         else {
-            setting($key, $config->{$key});
+            _set_setting($key, $config->{$key});
         }
     }
 
     return scalar(keys %$config);
 }
-
 
 sub load_default_settings {
     $SETTINGS->{server}       ||= $ENV{DANCER_SERVER}       || '0.0.0.0';
@@ -187,7 +218,7 @@ sub load_default_settings {
       || $ENV{PLACK_ENV}
       || 'development';
 
-    setting $_              => {} for keys %MERGEABLE;
+    setting $_ => {} for keys %MERGEABLE;
     setting template        => 'simple';
     setting import_warnings => 1;
 }
@@ -251,9 +282,26 @@ Default value is 'text/html'.
 
 =head2 charset (string)
 
-The default charset of outgoing content. Unicode bodies in HTTP
-responses of C<text/*> types will be encoded to this charset. Also,
-C<charset=> item will be added to Content-Type response header.
+This setting does 3 things:
+
+=over
+
+=item *
+
+It sets the default charset of outgoing content. C<charset=> item will be
+added to Content-Type response header.
+
+=item *
+
+It makes Unicode bodies in HTTP responses of C<text/*> types to be encoded to
+this charset.
+
+=item *
+
+It also indicates to Dancer in which charset the static files and templates are
+encoded.
+
+=back
 
 Default value is empty which means don't do anything. HTTP responses
 without charset will be interpreted as ISO-8859-1 by most clients.

@@ -17,6 +17,7 @@ use Encode;
 
 # This is where we choose which application handler to return
 sub get_handler {
+    my $handler = 'Dancer::Handler::Standalone';
 
     # force PSGI is PLACK_ENV is set
     if ($ENV{'PLACK_ENV'}) {
@@ -25,9 +26,10 @@ sub get_handler {
         setting('environment' => $ENV{'PLACK_ENV'});
     }
 
-    # build the apphandler class, based on settings
-    my $apphandler = setting('apphandler') || 'Standalone';    
-    my $handler = "Dancer::Handler::$apphandler";
+    # if Plack is detected or set by conf, use the PSGI handler
+    if ( defined setting('apphandler') ) {
+        $handler = 'Dancer::Handler::' . setting('apphandler');
+    }
 
     # load the app handler
     my ($loaded, $error) = Dancer::ModuleLoader->load($handler);
@@ -114,15 +116,6 @@ sub render_response {
 
     my $content = $response->{content};
     unless (ref($content) eq 'GLOB') {
-
-        # when the request is considered as ajax,
-        # we set the content type to text/xml
-        if (   Dancer::SharedData->request
-            && Dancer::SharedData->request->is_ajax)
-        {
-            $response->header(
-                'Content-Type' => 'text/xml; charset=UTF-8');
-        }
 
         my $charset = setting('charset');
         my $ctype   = $response->header('Content-Type');

@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use Dancer::Template::Simple;
 use File::Basename 'basename', 'dirname';
+use File::Path 'mkpath';
 use File::Spec::Functions;
 use Getopt::Long;
 use Pod::Usage;
@@ -13,6 +14,7 @@ use constant FILE => 1;
 
 # options
 my $help = 0;
+my $nocheck = 0;
 my $name = undef;
 my $path = '.';
 
@@ -24,11 +26,9 @@ GetOptions(
     "h|help"          => \$help,
     "a|application=s" => \$name,
     "p|path=s"        => \$path,
+    "x|no-check"      => \$nocheck,
     "v|version"       => \&version,
 ) or pod2usage( -verbose => 1 );
-
-# simple on-line help
-pod2usage( -verbose => 1 ) if $help;
 
 # main
 my $PERL_INTERPRETER = -r '/usr/bin/env' ? '#!/usr/bin/env perl' : "#!$^X";
@@ -49,7 +49,7 @@ my $AUTO_RELOAD = eval "require Module::Refresh and require Clone" ? 1 : 0;
 require Dancer;
 my $DANCER_VERSION   = $Dancer::VERSION;
 
-version_check();
+version_check() if $nocheck;
 safe_mkdir($DANCER_APP_DIR);
 create_node( app_tree($name), $DANCER_APP_DIR );
 
@@ -58,8 +58,10 @@ create_node( app_tree($name), $DANCER_APP_DIR );
 sub validate_app_name {
     my $name = shift;
     if ($name =~ /[^\w:]/ || $name =~ /^\d/ || $name =~ /\b:\b|:{3,}/) {
-        warn "Error: Invalid application name.\n";
-        usage();
+        print STDERR "Error: Invalid application name.\n";
+        print STDERR "Application names must not contain colons,"
+            ." dots  or start with a number.\n";
+        exit;
     }
 }
 
@@ -166,7 +168,7 @@ sub safe_mkdir {
     my ($dir) = @_;
     if (not -d $dir) {
         print "+ $dir\n";
-        mkdir $dir;
+        mkpath $dir or die "could not mkpath $dir: $!";
     }
     else {
         print "  $dir\n";
@@ -439,15 +441,17 @@ WriteMakefile(
 'main.tt'   =>
 '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
         "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html>
+<html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <meta http-equiv="Content-type" content="text/html; charset=<% settings.charset %>" />
 <title>'.$appname.'</title>
 <link rel="stylesheet" href="<% request.base %>/css/style.css" />
 
 <!-- Grab Google CDN\'s jQuery. fall back to local if necessary -->
-<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
-<script>!window.jQuery && document.write(\'<script src="<% request.base%>/javascripts/jquery.js"><\/script>\')</script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js" type="text/javascript"></script>
+<script type="text/javascript">/* <![CDATA[ */
+    !window.jQuery && document.write(\'<script type="text/javascript" src="<% request.base%>/javascripts/jquery.js"><\/script>\')
+/* ]]> */</script>
 
 </head>
 <body>
@@ -806,33 +810,86 @@ pre.error {
 
 'config.yml' =>
 
-"layout: \"main\"
-logger: \"console\"
-charset: \"UTF-8\"
+"# This is the main configuration file of your Dancer app
+# env-related settings should go to environments/\$env.yml
+# all the settings in this file will be loaded at Dancer's startup.
+
+# Your application's name
 appname: \"$name\"
+
+# The default layout to use for your application (located in
+# views/layouts/main.tt)
+layout: \"main\"
+
+# when the charset is set to UTF-8 Dancer will handle for you
+# all the magic of encoding and decoding. You should not care
+# about unicode within your app when this setting is set (recommended).
+charset: \"UTF-8\"
+
+# template engine
+# simple: default and very basic template engine
+# template_toolkit: TT
+
+template: \"simple\"
+
+# template: \"template_toolkit\"
+# engines:
+#   template_toolkit:
+#     encoding:  'utf8'
+#     start_tag: '[%'
+#     end_tag:   '%]'
 
 ",
 
 'jquery.js' => jquery_minified(),
 
 'development.yml' =>
-"log: \"core\"
+"# configuration file for development environment
+
+# the logger engine to use
+# console: log messages to STDOUT (your console where you started the
+#          application server)
+# file:    log message to a file in log/
+logger: \"console\"
+
+# the log level for this environement
+# core is the lowest, it shows Dancer's core log messages as well as yours
+# (debug, warning and error)
+log: \"core\"
+
+# should Dancer consider warnings as critical errors?
 warnings: 1
+
+# should Dancer show a stacktrace when an error is caught?
 show_errors: 1
 
-# auto_reload is a development feature
+# auto_reload is a development and experimental feature
 # you should enable it by yourself if you want it
-# Module::Refresh is needed
+# Module::Refresh is needed 
+# 
+# Be aware it's unstable and may cause a memory leak.
+# DO NOT EVER USE THAT FEATURE IN PRODUCTION 
+# OR TINY KITTENS SHALL DIE WITH LOTS OF SUFFERING
 auto_reload: 0
 ",
 
 'production.yml' =>
-'log: "warning"
+'# configuration file for production environment
+
+# only log warning and error messsages
+log: "warning"
+
+# log message to a file in logs/
+logger: "file"
+
+# don\'t consider warnings critical
 warnings: 0
+
+# hide errors 
 show_errors: 0
+
+# cache route resolution for maximum performance
 route_cache: 1
-# never enable auto_reload in production
-auto_reload: 0
 
 ',
 
@@ -1314,6 +1371,7 @@ dancer [options] -a <appname>
     -a, --application     : the name of your application
     -p, --path            : the path where to create your application
                               (current directory if not specified)
+    -x, --no-check        : don't check for the latest version of Dancer
     -v, --version         : print the version of dancer being used
 
 =head1 DESCRIPTION

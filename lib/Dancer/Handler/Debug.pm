@@ -8,7 +8,6 @@ use HTTP::Server::Simple::PSGI;
 use base 'Dancer::Object', 'Dancer::Handler', 'HTTP::Server::Simple::PSGI';
 
 use Dancer::Config 'setting';
-use Dancer::Headers;
 use Dancer::SharedData;
 
 sub run {
@@ -80,7 +79,7 @@ Dancer::Handler::Debug - a debug handler for easy tracing
 
 =head1 DESCRIPTION
 
-When developping a Dancer application, it can be useful to trace precisely what
+When developing a Dancer application, it can be useful to trace precisely what
 happen when a query is processed. This handler is here to provide the developer
 with a way to easily run the dancer application with the Perl debugger.
 

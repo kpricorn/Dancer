@@ -31,7 +31,7 @@ use File::Basename 'basename';
 use base 'Exporter';
 
 $AUTHORITY = 'SUKRIA';
-$VERSION   = '1.1999_02';
+$VERSION   = '1.3000_01';
 @EXPORT    = qw(
   after
   any
@@ -103,7 +103,7 @@ sub before_template { Dancer::Route::Registry->hook('before_template', @_) }
 sub captures        { Dancer::SharedData->request->params->{captures} }
 sub cookies         { Dancer::Cookies->cookies }
 sub config          { Dancer::Config::settings() }
-sub content_type    { Dancer::Response::content_type(@_) }
+sub content_type    { Dancer::Response->content_type(@_) }
 sub dance           { Dancer::start(@_) }
 sub debug           { goto &Dancer::Logger::debug }
 sub dirname         { Dancer::FileUtils::dirname(@_) }
@@ -120,7 +120,7 @@ sub get {
     Dancer::App->current->registry->universal_add('get',  @_);
 }
 sub halt      { Dancer::Response->halt(@_) }
-sub headers   { Dancer::Response::headers(@_); }
+sub headers   { Dancer::Response->headers(@_); }
 sub header    { goto &headers; }                            # goto ftw!
 sub layout    { set(layout => shift) }
 sub load      { require $_ for @_ }
@@ -164,7 +164,7 @@ sub session {
     }
 }
 sub splat     { @{Dancer::SharedData->request->params->{splat}} }
-sub status    { Dancer::Response::status(@_) }
+sub status    { Dancer::Response->status(@_) }
 sub template  { Dancer::Helpers::template(@_) }
 sub true      {1}
 sub to_dumper { Dancer::Serializer::Dumper::to_dumper(@_) }
@@ -388,11 +388,13 @@ them.
 Defines a before_template filter:
 
     before_template sub {
+        my $tokens = shift;
         # do something with request, vars or params
     };
 
 The anonymous function which is given to C<before_template> will be executed
-before sending data and tokens to the template.
+before sending data and tokens to the template. Receives a hashref of the
+tokens that will be inserted into the template.
 
 This filter works as the C<before> and C<after> filter.
 
@@ -481,7 +483,7 @@ Defines a route for HTTP B<GET> requests to the given path:
 Sets a response object with the content given.
 
 When used as a return value from a filter, this breaks the execution flow and
-renders the response immediatly:
+renders the response immediately:
 
     before sub {
         if ($some_condition) {
@@ -662,6 +664,16 @@ You can also force Dancer to return a specific 300-ish HTTP response code:
 
     get '/old/:resource', sub {
         redirect '/new/'.params->{resource}, 301;
+    };
+    
+It is important to note that issuing a redirect by itself does not exit and
+redirect immediately, redirection is deferred until after the current route
+or filter has been processed. To exit and redirect immediately, use the return
+function, e.g.
+
+    get '/restricted', sub {
+        return redirect '/login' if accessDenied();
+        return 'Welcome to the restricted section';
     };
 
 =head2 render_with_layout
